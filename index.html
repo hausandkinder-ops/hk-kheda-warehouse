@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Gujarat Kheda Warehouse — Inventory Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<!-- SheetJS for Excel parsing in browser -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#060D18;--surf:#0D1B2A;--surf2:#111E30;--surf3:#162436;
+  --bdr:#1E3A5F;--bdr2:#2A5080;
+  --blue:#1E6FD9;--sky:#4A90E2;--cyan:#00D2AA;--amber:#F4A828;
+  --red:#FF6B6B;--purple:#CE93D8;--teal:#64B5F6;--orange:#FFB74D;
+  --green:#66BB6A;--pink:#F06292;
+  --text:#E8F1FF;--muted:#6A8CAE;--dim:#3A5A7F;
+  --danger:#FF4757;--warn:#FFA502;--ok:#2ED573;
+  --fd:'Syne',sans-serif; --fb:'Plus Jakarta Sans',sans-serif; --fm:'Fira Code',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--fb);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px);
+  pointer-events:none;z-index:9999;}
+
+/* HERO */
+.hero{position:relative;padding:32px 48px 24px;overflow:hidden;
+  background:linear-gradient(135deg,#060D18 0%,#0D1B2A 50%,#091525 100%);}
+.hgrid{position:absolute;inset:0;
+  background-image:linear-gradient(var(--bdr) 1px,transparent 1px),linear-gradient(90deg,var(--bdr) 1px,transparent 1px);
+  background-size:40px 40px;opacity:.25;animation:gp 4s ease-in-out infinite;}
+@keyframes gp{0%,100%{opacity:.25}50%{opacity:.4}}
+.hglow{position:absolute;top:-60px;left:50%;transform:translateX(-50%);
+  width:600px;height:200px;background:radial-gradient(ellipse,rgba(30,111,217,.25) 0%,transparent 70%);pointer-events:none;}
+.hc{position:relative;z-index:2;}
+.eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.pdot{width:10px;height:10px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px rgba(0,210,170,.6);animation:pd 2s ease-in-out infinite;}
+@keyframes pd{0%,100%{transform:scale(1)}50%{transform:scale(1.4)}}
+.ltag{font-family:var(--fm);font-size:11px;color:var(--cyan);letter-spacing:2px;text-transform:uppercase;font-weight:600;}
+.hero h1{font-family:var(--fd);font-size:clamp(20px,3vw,38px);font-weight:800;color:white;line-height:1.1;letter-spacing:-1px;}
+.hero h1 em{color:var(--sky);font-style:normal;}
+.hsub{color:var(--muted);font-size:13px;margin-top:6px;}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+.pill{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid;letter-spacing:.5px;}
+.pb{color:var(--sky);border-color:rgba(74,144,226,.4);background:rgba(74,144,226,.08);}
+.pc{color:var(--cyan);border-color:rgba(0,210,170,.4);background:rgba(0,210,170,.08);}
+.pa{color:var(--amber);border-color:rgba(244,168,40,.4);background:rgba(244,168,40,.08);}
+.pg{color:var(--green);border-color:rgba(102,187,106,.4);background:rgba(102,187,106,.08);}
+.pp{color:var(--pink);border-color:rgba(240,98,146,.4);background:rgba(240,98,146,.08);}
+
+/* ── UPLOAD PANEL (prominent, in hero) */
+.upload-panel{margin-top:20px;background:rgba(30,111,217,.08);border:2px dashed rgba(74,144,226,.5);
+  border-radius:16px;padding:22px 28px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;
+  transition:border-color .3s,background .3s;cursor:pointer;position:relative;z-index:2;}
+.upload-panel:hover,.upload-panel.drag{border-color:var(--cyan);background:rgba(0,210,170,.08);}
+.upload-panel.drag{border-style:solid;}
+.upload-icon{font-size:42px;flex-shrink:0;}
+.upload-info h3{font-family:var(--fd);font-size:18px;font-weight:700;color:var(--text);}
+.upload-info p{font-size:13px;color:var(--muted);margin-top:4px;}
+.upload-info small{font-size:11px;color:var(--dim);font-family:var(--fm);}
+#fileInput{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-status{margin-left:auto;min-width:180px;}
+.ustep{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:6px;}
+.ustep-dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0;}
+.ustep.done .ustep-dot{background:var(--ok);}
+.ustep.active .ustep-dot{background:var(--amber);animation:pd 1s infinite;}
+.ustep.error .ustep-dot{background:var(--danger);}
+.ustep.done{color:var(--ok);} .ustep.active{color:var(--amber);} .ustep.error{color:var(--danger);}
+.upload-actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;}
+
+/* ── QUICK ACTION BUTTONS inside upload panel */
+.quick-btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;position:relative;z-index:3;}
+.qbtn{padding:7px 14px;border-radius:8px;font-size:11px;font-weight:700;border:1px solid;
+  cursor:pointer;font-family:var(--fb);display:inline-flex;align-items:center;gap:5px;
+  transition:all .2s;pointer-events:all;}
+.qbtn-tpl{color:var(--amber);border-color:rgba(244,168,40,.45);background:rgba(244,168,40,.1);}
+.qbtn-tpl:hover{background:rgba(244,168,40,.22);}
+.qbtn-undo{color:var(--danger);border-color:rgba(255,71,87,.4);background:rgba(255,71,87,.1);}
+.qbtn-undo:hover{background:rgba(255,71,87,.22);}
+
+/* ── UNDO CONFIRM MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10000;
+  display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.modal-overlay.show{display:flex;animation:fi .2s ease;}
+.modal-box{background:var(--surf);border:1px solid var(--bdr);border-radius:18px;
+  padding:36px 40px;max-width:440px;width:90%;text-align:center;
+  box-shadow:0 32px 80px rgba(0,0,0,.7);}
+.modal-box h3{font-family:var(--fd);font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px;}
+.modal-box p{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:18px;}
+.modal-meta{background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;
+  padding:10px 16px;font-family:var(--fm);font-size:12px;color:var(--sky);
+  margin-bottom:22px;text-align:left;}
+.modal-btns{display:flex;gap:12px;justify-content:center;}
+
+/* TABS */
+.tabs{background:var(--surf);border-bottom:1px solid var(--bdr);
+  padding:0 48px;display:flex;position:sticky;top:0;z-index:100;
+  box-shadow:0 4px 24px rgba(0,0,0,.4);overflow-x:auto;}
+.tab{padding:14px 18px;font-size:13px;font-weight:600;color:var(--muted);
+  background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;
+  margin-bottom:-1px;transition:all .25s;font-family:var(--fb);
+  display:flex;align-items:center;gap:6px;white-space:nowrap;}
+.tab:hover{color:var(--text);}
+.tab.on{color:var(--sky);border-bottom-color:var(--sky);}
+.abadge{background:var(--danger);color:white;font-size:10px;font-weight:700;
+  padding:2px 7px;border-radius:10px;animation:ab 1.5s ease-in-out infinite;}
+@keyframes ab{0%,100%{box-shadow:0 0 0 0 rgba(255,71,87,.6)}50%{box-shadow:0 0 0 5px rgba(255,71,87,0)}}
+
+/* MAIN */
+.main{padding:28px 48px;max-width:1500px;margin:0 auto;}
+.sec{display:none;animation:fi .3s ease;}
+.sec.on{display:block;}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* DATA STATE BANNER */
+.data-banner{border-radius:12px;padding:14px 20px;margin-bottom:22px;
+  display:flex;align-items:center;gap:14px;font-size:13px;font-weight:600;}
+.db-fresh{background:rgba(46,213,115,.08);border:1px solid rgba(46,213,115,.3);color:var(--ok);}
+.db-empty{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.3);color:var(--danger);}
+.db-empty a{color:var(--sky);cursor:pointer;text-decoration:underline;}
+
+/* KPI GRID */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:13px;margin-bottom:24px;}
+.kpi{background:var(--surf);border:1px solid var(--bdr);border-radius:13px;
+  padding:18px 16px;position:relative;overflow:hidden;transition:transform .25s,box-shadow .25s;}
+.kpi:hover{transform:translateY(-3px);box-shadow:0 0 20px rgba(30,111,217,.3);}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kac,var(--blue));}
+.ki{font-size:19px;margin-bottom:7px;}
+.kl{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px;}
+.kv{font-family:var(--fd);font-size:26px;font-weight:800;color:var(--text);line-height:1;}
+.ks{font-size:11px;color:var(--dim);margin-top:4px;font-family:var(--fm);}
+
+/* CAPACITY BAR */
+.cap{background:var(--surf);border:1px solid var(--bdr);border-radius:13px;padding:20px 24px;margin-bottom:22px;}
+.cap-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.cap-t{font-family:var(--fd);font-size:15px;font-weight:700;}
+.cap-p{font-family:var(--fm);font-size:20px;font-weight:600;color:var(--ok);}
+.cap-tr{background:var(--surf3);border-radius:10px;height:18px;overflow:hidden;}
+.cap-f{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--cyan),var(--ok));box-shadow:0 0 10px rgba(0,210,170,.4);transition:width 1.2s cubic-bezier(.4,0,.2,1);}
+.cap-m{display:flex;justify-content:space-between;margin-top:6px;font-size:10px;font-family:var(--fm);color:var(--dim);}
+.cap-stats{display:flex;gap:24px;margin-top:14px;flex-wrap:wrap;}
+.csl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px;}
+.csv{font-size:15px;font-weight:700;font-family:var(--fm);}
+
+/* TABLES */
+.tcard{background:var(--surf);border:1px solid var(--bdr);border-radius:13px;overflow:hidden;margin-bottom:22px;}
+.ttool{padding:14px 20px;border-bottom:1px solid var(--bdr);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.st{font-family:var(--fd);font-size:16px;font-weight:700;display:flex;align-items:center;gap:7px;}
+.sb{padding:7px 15px 7px 34px;background:var(--surf2);border:1px solid var(--bdr);
+  border-radius:8px;color:var(--text);font-size:12px;font-family:var(--fb);outline:none;width:200px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' fill='%236A8CAE' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.867-3.834zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:10px center;}
+.sb:focus{border-color:var(--sky);}
+.sb::placeholder{color:var(--muted);}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:linear-gradient(90deg,#0F2A45,#112D4A);}
+th{padding:10px 12px;font-size:9.5px;font-weight:700;color:var(--muted);letter-spacing:1px;
+  text-transform:uppercase;text-align:right;border-bottom:1px solid var(--bdr);font-family:var(--fm);white-space:nowrap;}
+th:first-child,th:nth-child(2){text-align:left;}
+td{padding:10px 12px;border-bottom:1px solid rgba(30,58,95,.5);
+  text-align:right;font-family:var(--fm);font-size:11.5px;color:var(--text);}
+td:first-child{text-align:left;font-family:var(--fb);font-weight:600;font-size:12px;}
+td:nth-child(2){text-align:left;font-family:var(--fb);font-size:12px;}
+tr:hover td{background:rgba(30,111,217,.05);}
+tr:last-child td{border-bottom:none;}
+.vp{color:var(--ok);font-weight:700;}.vn{color:var(--red);font-weight:700;}
+.vz{color:var(--dim);}.vw{color:var(--warn);font-weight:700;}
+
+/* BADGES */
+.badge{padding:3px 10px;border-radius:20px;font-size:9.5px;font-weight:700;
+  letter-spacing:.8px;text-transform:uppercase;border:1px solid;display:inline-block;}
+.bf{color:#2ED573;border-color:rgba(46,213,115,.4);background:rgba(46,213,115,.1);}
+.bm{color:var(--amber);border-color:rgba(244,168,40,.4);background:rgba(244,168,40,.1);}
+.bs{color:var(--orange);border-color:rgba(255,183,77,.4);background:rgba(255,183,77,.1);}
+.bd{color:var(--red);border-color:rgba(255,107,107,.4);background:rgba(255,107,107,.1);}
+
+/* ALERT TAB */
+.ahero{background:linear-gradient(135deg,rgba(255,71,87,.12),rgba(255,71,87,.04));
+  border:1px solid rgba(255,71,87,.3);border-radius:13px;padding:20px 24px;
+  margin-bottom:22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.aico{font-size:40px;animation:shk 2.5s ease-in-out infinite;}
+@keyframes shk{0%,100%{transform:rotate(0)}8%{transform:rotate(-8deg)}16%{transform:rotate(8deg)}24%{transform:rotate(-4deg)}32%{transform:rotate(4deg)}40%{transform:rotate(0)}}
+.acard{background:var(--surf);border:1px solid rgba(255,71,87,.25);
+  border-radius:11px;padding:16px 20px;margin-bottom:12px;
+  display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;transition:transform .2s;}
+.acard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--danger);}
+.acard:hover{transform:translateX(4px);}
+.ametr{flex:1;min-width:140px;}
+.amtrk{height:9px;background:var(--surf3);border-radius:5px;overflow:hidden;}
+.amfil{height:100%;border-radius:5px;}
+.adays{font-family:var(--fd);font-size:24px;font-weight:800;text-align:center;min-width:70px;}
+
+/* BUTTONS */
+.btn{padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;border:1px solid;
+  cursor:pointer;font-family:var(--fb);display:inline-flex;align-items:center;gap:6px;transition:all .2s;}
+.bb{background:rgba(30,111,217,.12);color:var(--sky);border-color:rgba(30,111,217,.4);}
+.bb:hover{background:rgba(30,111,217,.25);}
+.br{background:rgba(255,71,87,.1);color:var(--danger);border-color:rgba(255,71,87,.35);}
+.br:hover{background:rgba(255,71,87,.2);}
+.bg{background:rgba(46,213,115,.08);color:var(--ok);border-color:rgba(46,213,115,.3);}
+.bg:hover{background:rgba(46,213,115,.18);}
+.bc{background:rgba(0,210,170,.1);color:var(--cyan);border-color:rgba(0,210,170,.35);}
+.bc:hover{background:rgba(0,210,170,.2);}
+
+/* FLOW TAB */
+.flow-wrap{background:var(--surf);border:1px solid var(--bdr);border-radius:14px;overflow:hidden;margin-bottom:22px;}
+.flow-head{padding:16px 22px;border-bottom:1px solid var(--bdr);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.flow-svgc{width:100%;overflow-x:auto;background:#0D1B2A;}
+.flow-svgc svg{width:100%;min-width:900px;height:auto;display:block;}
+.flow-cap{padding:12px 22px;border-top:1px solid var(--bdr);display:flex;justify-content:center;gap:16px;flex-wrap:wrap;}
+.fleg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);}
+.fdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+
+/* VALIDATION */
+.vok{background:rgba(46,213,115,.08);border:1px solid rgba(46,213,115,.25);
+  border-radius:10px;padding:14px 20px;color:var(--ok);font-weight:600;font-size:14px;
+  display:flex;align-items:center;gap:10px;}
+
+/* ERROR TOAST */
+.toast{position:fixed;bottom:24px;right:24px;z-index:9998;
+  background:#1A0A0A;border:1px solid var(--danger);border-radius:12px;
+  padding:16px 22px;color:var(--danger);font-size:13px;font-weight:600;
+  max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.5);
+  transform:translateY(100px);opacity:0;transition:all .4s;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+footer{background:var(--surf);border-top:1px solid var(--bdr);text-align:center;
+  padding:20px;font-size:12px;color:var(--dim);font-family:var(--fm);margin-top:32px;}
+footer em{color:var(--muted);font-style:normal;}
+@media(max-width:768px){.hero,.main,.tabs{padding-left:20px;padding-right:20px;}.kpis{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hgrid"></div><div class="hglow"></div>
+  <div class="hc">
+    <div class="eyebrow"><div class="pdot"></div><span class="ltag">Live Tracking · Daily Updated</span></div>
+    <h1>Gujarat Kheda<br/><em>Warehouse</em> Command Center</h1>
+    <p class="hsub">Inventory Management System · Haus &amp; Kinder Ops · May 2026</p>
+    <div class="pills">
+      <span class="pill pb">📦 2,35,000 unit capacity</span>
+      <span class="pill pc" id="utilPill">⚡ 0.81% utilized</span>
+      <span class="pill pa" id="periodPill">🗓 May 2026 · 6 SKUs</span>
+      <span class="pill pg">🏪 GGN + BLR + Store tracked</span>
+      <span class="pill pp">❓ Others category added</span>
+    </div>
+
+    <!-- ═══ UPLOAD PANEL ═══ -->
+    <div class="upload-panel" id="dropZone">
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv"/>
+      <div class="upload-icon">📂</div>
+      <div class="upload-info">
+        <h3>Upload Today's Stock Sheet</h3>
+        <p>Drag &amp; drop your Excel or CSV file here, or click to browse</p>
+        <small>Columns required: Sr.No. · Date · SKU Name · Quantity · Activity</small>
+        <div class="quick-btns">
+          <button class="qbtn qbtn-tpl" onclick="event.stopPropagation();dlTemplate()" title="Download a blank input template">📋 Download Template</button>
+          <button class="qbtn qbtn-undo" id="undoBtn" onclick="event.stopPropagation();showUndo()" style="display:none" title="Undo last upload (up to 5 history slots)">↩ Undo Upload</button>
+        </div>
+      </div>
+      <div class="upload-status">
+        <div class="ustep" id="st1"><span class="ustep-dot"></span>Waiting for file…</div>
+        <div class="ustep" id="st2"><span class="ustep-dot"></span>Validating data</div>
+        <div class="ustep" id="st3"><span class="ustep-dot"></span>Computing inventory</div>
+        <div class="ustep" id="st4"><span class="ustep-dot"></span>Dashboard ready</div>
+        <div class="upload-actions" id="uploadActions" style="display:none">
+          <button class="btn bb" onclick="dlProcessedExcel()">⬇ Download Excel</button>
+          <button class="btn bc" onclick="dlDailyCSV()">⬇ Daily CSV</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav class="tabs">
+  <button class="tab on" onclick="show('dashboard',this)">📊 Dashboard</button>
+  <button class="tab" onclick="show('stockout',this)">🚨 Stock-Out Alerts <span class="abadge" id="ac">0</span></button>
+  <button class="tab" onclick="show('daily',this)">📅 Daily Inventory</button>
+  <button class="tab" onclick="show('sku',this)">🏷️ SKU Summary</button>
+  <button class="tab" onclick="show('flow',this)">🔄 Flow Diagram</button>
+</nav>
+
+<main class="main">
+
+<!-- ══ DASHBOARD ══ -->
+<section id="dashboard" class="sec on">
+  <div class="data-banner db-empty" id="dataBanner">
+    📭 No data loaded yet. <a onclick="document.getElementById('fileInput').click()">Upload your stock sheet above</a> to populate the dashboard.
+  </div>
+  <div class="kpis">
+    <div class="kpi" style="--kac:#00D2AA"><div class="ki">🔓</div><div class="kl">Opening Stock</div><div class="kv" id="kOpening">—</div><div class="ks">Apr closing</div></div>
+    <div class="kpi" style="--kac:#2ED573"><div class="ki">📥</div><div class="kl">Total Inward</div><div class="kv" id="kInward">—</div><div class="ks">Units received</div></div>
+    <div class="kpi" style="--kac:#FF6B6B"><div class="ki">🛒</div><div class="kl">Total Sales</div><div class="kv" id="kSales">—</div><div class="ks">Units sold</div></div>
+    <div class="kpi" style="--kac:#CE93D8"><div class="ki">📦</div><div class="kl">FBA / FBF / SJIT</div><div class="kv" id="kFBA">—</div><div class="ks">Fulfilment</div></div>
+    <div class="kpi" style="--kac:#81D4FA"><div class="ki">🚚</div><div class="kl">GGN + BLR</div><div class="kv" id="kGGN">—</div><div class="ks">WH Transfers</div></div>
+    <div class="kpi" style="--kac:#66BB6A"><div class="ki">🏪</div><div class="kl">Store Transfers</div><div class="kv" id="kStore">—</div><div class="ks">Store dispatch</div></div>
+    <div class="kpi" style="--kac:#F06292"><div class="ki">❓</div><div class="kl">Others</div><div class="kv" id="kOthers">—</div><div class="ks">Uncategorised</div></div>
+    <div class="kpi" style="--kac:#1E6FD9"><div class="ki">🔒</div><div class="kl">Closing Stock</div><div class="kv" id="kClosing">—</div><div class="ks">End balance</div></div>
+    <div class="kpi" style="--kac:#FFD700"><div class="ki">⚡</div><div class="kl">Capacity Util.</div><div class="kv" id="kUtil">—</div><div class="ks">of 2,35,000</div></div>
+  </div>
+  <div class="cap">
+    <div class="cap-h"><div class="cap-t">🏭 Warehouse Capacity Utilization</div><div class="cap-p" id="capPct">—</div></div>
+    <div class="cap-tr"><div class="cap-f" id="capBar" style="width:0%"></div></div>
+    <div class="cap-m"><span>0%</span><span>25%</span><span>50%</span><span style="color:var(--warn)">75% ⚠</span><span style="color:var(--danger)">100% 🔴</span></div>
+    <div class="cap-stats">
+      <div><div class="csl">Current Stock</div><div class="csv" style="color:var(--sky)" id="csStock">—</div></div>
+      <div><div class="csl">Total Capacity</div><div class="csv">2,35,000</div></div>
+      <div><div class="csl">Available Space</div><div class="csv" style="color:var(--ok)" id="csAvail">—</div></div>
+      <div><div class="csl">Period</div><div class="csv" style="color:var(--amber)" id="csPeriod">—</div></div>
+    </div>
+  </div>
+  <div id="valBanner" class="vok" style="display:none"></div>
+</section>
+
+<!-- ══ STOCK-OUT ══ -->
+<section id="stockout" class="sec">
+  <div class="ahero">
+    <div class="aico">🚨</div>
+    <div><h2 style="font-family:var(--fd);font-size:19px;font-weight:800;color:var(--danger)">Stock-Out Risk Monitor</h2>
+    <p style="color:var(--muted);font-size:13px;margin-top:3px">DRS = Closing Stock ÷ DRR. Below 7 days = critical.</p></div>
+    <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn br" onclick="dlAlerts()">⬇ Alert CSV</button>
+      <button class="btn bg" onclick="dlT('sktbl','full_sku_inventory')">⬇ Full CSV</button>
+    </div>
+  </div>
+  <div id="acards"></div>
+  <div class="tcard" style="margin-top:20px">
+    <div class="ttool"><div class="st">📋 All SKUs — Stock Health</div></div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>SKU Name</th><th style="text-align:right">Units Available</th><th style="text-align:right">DRR</th><th style="text-align:right">Days Left</th><th style="text-align:right">Status</th></tr></thead>
+      <tbody id="sht"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ══ DAILY INVENTORY ══ -->
+<section id="daily" class="sec">
+  <div class="tcard">
+    <div class="ttool">
+      <div class="st">📅 Daily SKU-wise Inventory</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input class="sb" id="ds" oninput="ft('dtbl',this.value)" placeholder="Search SKU or date…"/>
+        <button class="btn bb" onclick="dlT('dtbl','daily_inventory')">⬇ CSV</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto"><table id="dtbl">
+      <thead><tr><th>Date</th><th>SKU</th><th>Opening</th><th>Inward</th><th>Sales</th><th>FBA</th><th>FBF</th><th>SJIT</th><th>GGN</th><th>BLR</th><th>Store</th><th>Others</th><th>Closing</th></tr></thead>
+      <tbody id="dtbody"><tr><td colspan="13" style="text-align:center;color:var(--dim);padding:30px">Upload a file to see daily inventory</td></tr></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ══ SKU SUMMARY ══ -->
+<section id="sku" class="sec">
+  <div class="tcard">
+    <div class="ttool">
+      <div class="st">🏷️ SKU-Level Monthly Summary</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input class="sb" id="ss" oninput="ft('sktbl',this.value)" placeholder="Search SKU…"/>
+        <button class="btn bb" onclick="dlT('sktbl','sku_summary')">⬇ CSV</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto"><table id="sktbl">
+      <thead><tr><th>SKU</th><th>Opening</th><th>Inward</th><th>Sales</th><th>FBA</th><th>FBF</th><th>SJIT</th><th>GGN</th><th>BLR</th><th>Store</th><th>Others</th><th>Total Out</th><th>Closing</th><th>DOI</th><th>Tag</th></tr></thead>
+      <tbody id="skbody"><tr><td colspan="15" style="text-align:center;color:var(--dim);padding:30px">Upload a file to see SKU summary</td></tr></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ══ FLOW DIAGRAM ══ -->
+<section id="flow" class="sec">
+  <div class="flow-wrap">
+    <div class="flow-head">
+      <div class="st">🔄 Inventory Flow Diagram — <span id="flowPeriod">May 2026</span></div>
+      <button class="btn bb" onclick="document.getElementById('flowc').requestFullscreen&&document.getElementById('flowc').requestFullscreen()">⛶ Full Screen</button>
+    </div>
+    <div class="flow-svgc" id="flowc">
+<svg viewBox="0 0 1600 820" xmlns="http://www.w3.org/2000/svg" width="1600" height="820">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0D1B2A"/>
+      <stop offset="100%" style="stop-color:#0A2540"/>
+    </linearGradient>
+    <linearGradient id="whGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0F3460"/>
+      <stop offset="100%" style="stop-color:#1A4A80"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+    <filter id="glowblue">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="ac" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#00D2AA"/></marker>
+    <marker id="ab" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#4A90E2"/></marker>
+    <marker id="ar" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#FF6B6B"/></marker>
+    <marker id="ap" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#CE93D8"/></marker>
+    <marker id="at" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64B5F6"/></marker>
+    <marker id="aa" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#FFB74D"/></marker>
+    <marker id="as" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#81D4FA"/></marker>
+    <marker id="ag" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#66BB6A"/></marker>
+    <marker id="ao" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#F06292"/></marker>
+  </defs>
+
+  <rect width="1600" height="820" fill="url(#bgGrad)"/>
+  <pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+    <circle cx="20" cy="20" r="1.2" fill="#1A3A5F" opacity="0.5"/>
+  </pattern>
+  <rect width="1600" height="820" fill="url(#dots)"/>
+
+  <!-- TITLE -->
+  <text x="800" y="50" text-anchor="middle" font-family="Arial Black,sans-serif"
+        font-size="30" font-weight="900" fill="white" letter-spacing="1">
+    GUJARAT KHEDA WAREHOUSE — INVENTORY FLOW
+  </text>
+  <text x="800" y="76" text-anchor="middle" font-family="Arial,sans-serif"
+        font-size="15" fill="#6AABF7" font-style="italic">
+    MAY 2026  ·  All figures in units  ·  Total Capacity: 2,35,000 units
+  </text>
+
+  <!-- INWARD (top centre, cx=800) -->
+  <rect x="690" y="96" width="220" height="100" rx="12" fill="#0A2540" stroke="#00D2AA" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="690" y="96" width="220" height="22" rx="12" fill="#00D2AA" opacity="0.7"/>
+  <rect x="690" y="108" width="220" height="10" fill="#00D2AA" opacity="0.7"/>
+  <text x="800" y="114" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">INWARD</text>
+  <text x="800" y="143" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#8FBCDB">Stock Received</text>
+  <text x="800" y="170" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="19" font-weight="900" fill="#00FFC6">+400 units</text>
+  <line x1="800" y1="196" x2="800" y2="280" stroke="#00D2AA" stroke-width="3" marker-end="url(#ac)" opacity="0.9"/>
+  <text x="816" y="242" font-family="Arial,sans-serif" font-size="13" fill="#00D2AA" font-weight="bold">+ IN</text>
+
+  <!-- CENTRAL WAREHOUSE BOX (cx=800, y=287–472) -->
+  <rect x="620" y="287" width="360" height="185" rx="16" fill="#0A1F3A" stroke="#4A90E2" stroke-width="3" filter="url(#glowblue)"/>
+  <rect x="620" y="287" width="360" height="185" rx="16" fill="url(#whGrad)" opacity="0.9"/>
+  <line x1="622" y1="342" x2="978" y2="342" stroke="#1E6FD9" stroke-width="0.8" opacity="0.4"/>
+  <line x1="622" y1="397" x2="978" y2="397" stroke="#1E6FD9" stroke-width="0.8" opacity="0.4"/>
+  <line x1="800" y1="289" x2="800" y2="470" stroke="#1E6FD9" stroke-width="0.8" opacity="0.4"/>
+  <text x="800" y="326" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="24" font-weight="900" fill="white" letter-spacing="1">GUJARAT KHEDA</text>
+  <text x="800" y="354" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="17" font-weight="900" fill="#4A90E2" letter-spacing="2">WAREHOUSE</text>
+  <text x="800" y="378" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" fill="#6AABF7" font-style="italic">MAY 2026</text>
+  <rect x="650" y="392" width="300" height="20" rx="10" fill="#1E3A5F" stroke="#2A5A9F" stroke-width="1"/>
+  <rect x="650" y="392" width="6" height="20" rx="10" fill="#00D2AA"/>
+  <text x="800" y="407" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#8FBCDB" font-weight="bold">Capacity: 0.81%  (1,900 / 2,35,000 units)</text>
+  <text x="800" y="446" text-anchor="middle" font-family="Arial,sans-serif" font-size="10.5" fill="#5A8CAE" font-style="italic">Closing = Opening + Inward − Sales − FBA − FBF − SJIT − Transfers − Others</text>
+
+  <!-- LEFT: APRIL CLOSING (cx=140) -->
+  <rect x="30" y="308" width="220" height="130" rx="12" fill="#0A2540" stroke="#00D2AA" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="30" y="308" width="220" height="22" rx="12" fill="#00D2AA" opacity="0.65"/>
+  <rect x="30" y="320" width="220" height="10" fill="#00D2AA" opacity="0.65"/>
+  <text x="140" y="327" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="14" font-weight="900" fill="white">APRIL 2026</text>
+  <text x="140" y="357" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Closing Stock (IN)</text>
+  <text x="140" y="388" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#00FFC6">2,000 units</text>
+  <text x="140" y="413" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">Opening Balance →</text>
+  <line x1="250" y1="373" x2="615" y2="373" stroke="#00D2AA" stroke-width="3" marker-end="url(#ac)" opacity="0.9"/>
+  <text x="430" y="362" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#00D2AA" font-weight="bold">Opening Balance</text>
+
+  <!-- RIGHT: MAY CLOSING (cx=1460) -->
+  <rect x="1350" y="308" width="220" height="130" rx="12" fill="#0A2540" stroke="#4A90E2" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="1350" y="308" width="220" height="22" rx="12" fill="#4A90E2" opacity="0.65"/>
+  <rect x="1350" y="320" width="220" height="10" fill="#4A90E2" opacity="0.65"/>
+  <text x="1460" y="327" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="14" font-weight="900" fill="white">MAY 2026</text>
+  <text x="1460" y="357" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Closing Stock (OUT)</text>
+  <text x="1460" y="388" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#7DD3FC">1,900 units</text>
+  <text x="1460" y="413" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">← End Balance</text>
+  <line x1="980" y1="373" x2="1345" y2="373" stroke="#4A90E2" stroke-width="3" marker-end="url(#ab)" opacity="0.9"/>
+  <text x="1163" y="362" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#4A90E2" font-weight="bold">End Balance</text>
+
+  <!-- BOTTOM OUTFLOW NODES — 7 nodes, cx: 115,315,515,715,915,1115,1315  width=162 gap=38 -->
+
+  <!-- helper macro: each node = arrow from y=472 to y=568, box from y=570 to y=718 -->
+
+  <!-- 1 SALES cx=115 -->
+  <line x1="115" y1="472" x2="115" y2="566" stroke="#FF6B6B" stroke-width="3" marker-end="url(#ar)" opacity="0.9"/>
+  <rect x="34" y="568" width="162" height="148" rx="12" fill="#1A0808" stroke="#FF6B6B" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="34" y="568" width="162" height="22" rx="12" fill="#FF6B6B" opacity="0.75"/>
+  <rect x="34" y="580" width="162" height="10" fill="#FF6B6B" opacity="0.75"/>
+  <text x="115" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">SALES</text>
+  <text x="115" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Direct Orders</text>
+  <text x="115" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#FF6B6B">300 units</text>
+  <text x="115" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
+
+  <!-- 2 FBA cx=315 -->
+  <line x1="315" y1="472" x2="315" y2="566" stroke="#CE93D8" stroke-width="3" marker-end="url(#ap)" opacity="0.9"/>
+  <rect x="234" y="568" width="162" height="148" rx="12" fill="#130A18" stroke="#CE93D8" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="234" y="568" width="162" height="22" rx="12" fill="#CE93D8" opacity="0.7"/>
+  <rect x="234" y="580" width="162" height="10" fill="#CE93D8" opacity="0.7"/>
+  <text x="315" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">FBA</text>
+  <text x="315" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Amazon Fulfilment</text>
+  <text x="315" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#CE93D8">100 units</text>
+  <text x="315" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
+
+  <!-- 3 FBF cx=515 -->
+  <line x1="515" y1="472" x2="515" y2="566" stroke="#64B5F6" stroke-width="3" marker-end="url(#at)" opacity="0.9"/>
+  <rect x="434" y="568" width="162" height="148" rx="12" fill="#080F1A" stroke="#64B5F6" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="434" y="568" width="162" height="22" rx="12" fill="#64B5F6" opacity="0.7"/>
+  <rect x="434" y="580" width="162" height="10" fill="#64B5F6" opacity="0.7"/>
+  <text x="515" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">FBF</text>
+  <text x="515" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Flipkart Fulfilment</text>
+  <text x="515" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#64B5F6">0 units</text>
+  <text x="515" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
+
+  <!-- 4 SJIT cx=715 -->
+  <line x1="715" y1="472" x2="715" y2="566" stroke="#FFB74D" stroke-width="3" marker-end="url(#aa)" opacity="0.9"/>
+  <rect x="634" y="568" width="162" height="148" rx="12" fill="#18100A" stroke="#FFB74D" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="634" y="568" width="162" height="22" rx="12" fill="#FFB74D" opacity="0.7"/>
+  <rect x="634" y="580" width="162" height="10" fill="#FFB74D" opacity="0.7"/>
+  <text x="715" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">SJIT</text>
+  <text x="715" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Just-In-Time</text>
+  <text x="715" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#FFB74D">0 units</text>
+  <text x="715" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
+
+  <!-- 5 GGN+BLR cx=915 -->
+  <line x1="915" y1="472" x2="915" y2="566" stroke="#81D4FA" stroke-width="3" marker-end="url(#as)" opacity="0.9"/>
+  <rect x="834" y="568" width="162" height="148" rx="12" fill="#081018" stroke="#81D4FA" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="834" y="568" width="162" height="22" rx="12" fill="#81D4FA" opacity="0.7"/>
+  <rect x="834" y="580" width="162" height="10" fill="#81D4FA" opacity="0.7"/>
+  <text x="915" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="14" font-weight="900" fill="white">GGN + BLR</text>
+  <text x="915" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">WH Transfers</text>
+  <text x="915" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#81D4FA">100 units</text>
+  <text x="915" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
+
+  <!-- 6 STORE cx=1115 -->
+  <line x1="1115" y1="472" x2="1115" y2="566" stroke="#66BB6A" stroke-width="3" marker-end="url(#ag)" opacity="0.9"/>
+  <rect x="1034" y="568" width="162" height="148" rx="12" fill="#081208" stroke="#66BB6A" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="1034" y="568" width="162" height="22" rx="12" fill="#66BB6A" opacity="0.7"/>
+  <rect x="1034" y="580" width="162" height="10" fill="#66BB6A" opacity="0.7"/>
+  <text x="1115" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">STORE</text>
+  <text x="1115" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Store Transfers</text>
+  <text x="1115" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#66BB6A">0 units</text>
+  <text x="1115" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
+
+  <!-- 7 OTHERS cx=1315 -->
+  <line x1="1315" y1="472" x2="1315" y2="566" stroke="#F06292" stroke-width="3" marker-end="url(#ao)" opacity="0.9"/>
+  <rect x="1234" y="568" width="162" height="148" rx="12" fill="#180A10" stroke="#F06292" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="1234" y="568" width="162" height="22" rx="12" fill="#F06292" opacity="0.7"/>
+  <rect x="1234" y="580" width="162" height="10" fill="#F06292" opacity="0.7"/>
+  <text x="1315" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">OTHERS</text>
+  <text x="1315" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Uncategorised</text>
+  <text x="1315" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#F06292">0 units</text>
+  <text x="1315" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
+
+  <!-- LEGEND -->
+  <rect x="30" y="748" width="1540" height="54" rx="10" fill="#0D1B2A" stroke="#1E3A5F" stroke-width="1"/>
+  <circle cx="65"   cy="775" r="8" fill="#00D2AA"/> <text x="79"   y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">Inward/Opening</text>
+  <circle cx="205"  cy="775" r="8" fill="#FF6B6B"/> <text x="219"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">Sales</text>
+  <circle cx="290"  cy="775" r="8" fill="#CE93D8"/> <text x="304"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">FBA</text>
+  <circle cx="370"  cy="775" r="8" fill="#64B5F6"/> <text x="384"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">FBF</text>
+  <circle cx="450"  cy="775" r="8" fill="#FFB74D"/> <text x="464"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">SJIT</text>
+  <circle cx="535"  cy="775" r="8" fill="#81D4FA"/> <text x="549"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">GGN+BLR Transfers</text>
+  <circle cx="720"  cy="775" r="8" fill="#66BB6A"/> <text x="734"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">Store Transfers</text>
+  <circle cx="870"  cy="775" r="8" fill="#F06292"/> <text x="884"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">Others</text>
+  <circle cx="960"  cy="775" r="8" fill="#4A90E2"/> <text x="974"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">Closing Stock</text>
+</svg>
+    </div>
+    <div class="flow-cap">
+      <span class="fleg"><span class="fdot" style="background:#00D2AA"></span>Inward/Opening</span>
+      <span class="fleg"><span class="fdot" style="background:#FF6B6B"></span>Sales</span>
+      <span class="fleg"><span class="fdot" style="background:#CE93D8"></span>FBA</span>
+      <span class="fleg"><span class="fdot" style="background:#64B5F6"></span>FBF</span>
+      <span class="fleg"><span class="fdot" style="background:#FFB74D"></span>SJIT</span>
+      <span class="fleg"><span class="fdot" style="background:#81D4FA"></span>GGN+BLR</span>
+      <span class="fleg"><span class="fdot" style="background:#66BB6A"></span>Store</span>
+      <span class="fleg"><span class="fdot" style="background:#F06292"></span>Others</span>
+      <span class="fleg"><span class="fdot" style="background:#4A90E2"></span>Closing Stock</span>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <em>Gujarat Kheda Warehouse Inventory System</em> · Haus &amp; Kinder Ops ·
+  <em>Python + GitHub Pages</em> · May 2026
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<!-- UNDO CONFIRM MODAL -->
+<div class="modal-overlay" id="undoModal">
+  <div class="modal-box" style="max-width:520px">
+    <div style="font-size:44px;margin-bottom:10px">↩</div>
+    <h3>Upload History</h3>
+    <p>Click any previous version below to restore it, or clear all data to start fresh.<br/><span style="font-size:11px;color:var(--dim)">Up to 5 previous uploads are saved per session.</span></p>
+    <div class="modal-meta" id="undoMeta" style="text-align:left;max-height:260px;overflow-y:auto">No history yet</div>
+    <div class="modal-btns" style="margin-top:20px">
+      <button class="btn br" onclick="confirmUndo()" style="padding:10px 20px;font-size:12px">🗑 Clear All Data</button>
+      <button class="btn bb" onclick="closeUndo()" style="padding:10px 20px;font-size:12px">✕ Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CAPACITY = 235000;
+const VALID_ACTS = ['Closing Stock Previous Month','Inward','Sales','FBA','FBF','SJIT','Stock Transfer to GGN','Stock Transfer to BLR','Stock Transfer to Store','Others','Opening Stock Next Month'];
+const ACT_MAP = {'Closing Stock Previous Month':'prev_closing','Inward':'Inward','Sales':'Sales','FBA':'FBA','FBF':'FBF','SJIT':'SJIT','Stock Transfer to GGN':'Transfer_GGN','Stock Transfer to BLR':'Transfer_BLR','Stock Transfer to Store':'Transfer_Store','Others':'Others','Opening Stock Next Month':'next_opening'};
+
+var g_daily=[], g_sku=[], g_kpis={}, g_errors=[];
+var MAX_HISTORY=5, g_history=[], g_lastFileName='';
+
+function show(id,btn){document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('on');});document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('on');});document.getElementById(id).classList.add('on');if(btn)btn.classList.add('on');}
+
+function ft(tid,q){document.querySelectorAll('#'+tid+' tbody tr').forEach(function(r){r.style.display=r.textContent.toLowerCase().indexOf(q.toLowerCase())>=0?'':'none';});}
+
+function toast(msg,isErr){if(isErr===undefined)isErr=true;var t=document.getElementById('toast');t.textContent=msg;t.style.borderColor=isErr?'var(--danger)':'var(--ok)';t.style.color=isErr?'var(--danger)':'var(--ok)';t.classList.add('show');setTimeout(function(){t.classList.remove('show');},4000);}
+
+function setStep(n,state,msg){var el=document.getElementById('st'+n);el.className='ustep '+state;el.innerHTML='<span class="ustep-dot"></span>'+msg;}
+
+var dz=document.getElementById('dropZone');
+var fi=document.getElementById('fileInput');
+dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',function(){dz.classList.remove('drag');});
+dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('drag');var file=e.dataTransfer.files[0];if(file)processFile(file);});
+fi.addEventListener('change',function(e){if(e.target.files[0])processFile(e.target.files[0]);});
+
+function pushHistory(fileName){
+  if(g_daily.length===0)return;
+  var snap={fileName:fileName,daily:JSON.parse(JSON.stringify(g_daily)),sku:JSON.parse(JSON.stringify(g_sku)),kpis:JSON.parse(JSON.stringify(g_kpis)),errors:g_errors.slice()};
+  g_history.unshift(snap);
+  if(g_history.length>MAX_HISTORY)g_history.pop();
+}
+
+function showUndo(){
+  if(g_history.length===0&&g_daily.length===0){toast('Nothing to undo yet.');return;}
+  var html='';
+  if(g_daily.length>0){html+='<div style="padding:8px 0;border-bottom:1px solid var(--bdr);font-size:12px;color:var(--sky)"><strong>Current:</strong> '+(g_lastFileName||'Unknown')+' &mdash; '+g_sku.length+' SKUs, '+g_daily.length+' records</div>';}
+  if(g_history.length>0){
+    html+='<div style="font-size:11px;color:var(--muted);margin-top:8px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.8px">Restore to previous version:</div>';
+    for(var i=0;i<g_history.length;i++){
+      var hh=g_history[i];
+      html+='<div onclick="restoreHistory('+i+')" style="cursor:pointer;padding:8px 12px;margin-top:6px;background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;font-size:12px;color:var(--text)" onmouseover="this.style.borderColor=\'var(--sky)\'" onmouseout="this.style.borderColor=\'var(--bdr)\'"><span style="color:var(--muted);font-family:var(--fm)">v'+(g_history.length-i)+'</span> '+hh.fileName+' <span style="color:var(--muted)">'+hh.sku.length+' SKUs &middot; '+hh.daily.length+' records</span><span style="float:right;color:var(--sky);font-size:11px">Restore &rarr;</span></div>';
+    }
+  }else{html+='<div style="font-size:12px;color:var(--muted);margin-top:8px">No previous versions yet.</div>';}
+  document.getElementById('undoMeta').innerHTML=html;
+  document.getElementById('undoModal').classList.add('show');
+}
+
+function restoreHistory(idx){
+  var snap=g_history[idx];if(!snap)return;
+  if(g_daily.length>0){g_history.unshift({fileName:g_lastFileName,daily:JSON.parse(JSON.stringify(g_daily)),sku:JSON.parse(JSON.stringify(g_sku)),kpis:JSON.parse(JSON.stringify(g_kpis)),errors:g_errors.slice()});}
+  g_history.splice(idx+1,1);
+  if(g_history.length>MAX_HISTORY)g_history.pop();
+  g_daily=snap.daily;g_sku=snap.sku;g_kpis=snap.kpis;g_errors=snap.errors;g_lastFileName=snap.fileName;
+  renderDashboard();renderDaily();renderSKU();renderAlerts();
+  closeUndo();toast('Restored: '+snap.fileName,false);
+}
+
+function closeUndo(){document.getElementById('undoModal').classList.remove('show');}
+
+function confirmUndo(){g_daily=[];g_sku=[];g_kpis={};g_errors=[];g_lastFileName='';g_history=[];applyEmptyState();closeUndo();toast('All data cleared.',false);}
+
+function applyEmptyState(){
+  ['kOpening','kInward','kSales','kFBA','kGGN','kStore','kOthers','kClosing','kUtil'].forEach(function(id){document.getElementById(id).textContent='\u2014';});
+  document.getElementById('capPct').textContent='\u2014';
+  document.getElementById('capBar').style.width='0%';
+  document.getElementById('csStock').textContent='\u2014';
+  document.getElementById('csAvail').textContent='\u2014';
+  document.getElementById('csPeriod').textContent='\u2014';
+  var b=document.getElementById('dataBanner');
+  b.className='data-banner db-empty';
+  b.innerHTML='\uD83D\uDCED No data loaded. <a onclick="document.getElementById(\'fileInput\').click()" style="cursor:pointer;color:var(--sky)">Upload your stock sheet above</a> to populate the dashboard.';
+  var vb=document.getElementById('valBanner');vb.style.display='none';vb.textContent='';
+  document.getElementById('dtbody').innerHTML='<tr><td colspan="13" style="text-align:center;color:var(--dim);padding:30px">Upload a file to see daily inventory</td></tr>';
+  document.getElementById('skbody').innerHTML='<tr><td colspan="15" style="text-align:center;color:var(--dim);padding:30px">Upload a file to see SKU summary</td></tr>';
+  document.getElementById('acards').innerHTML='';
+  document.getElementById('sht').innerHTML='';
+  document.getElementById('ac').textContent='0';
+  document.getElementById('utilPill').textContent='\u26A1 \u2014% utilized';
+  document.getElementById('periodPill').textContent='\uD83D\uDDD3 \u2014 \u00B7 \u2014 SKUs';
+  document.getElementById('flowPeriod').textContent='\u2014';
+  setStep(1,'','Waiting for file\u2026');setStep(2,'','Validating data');setStep(3,'','Computing inventory');setStep(4,'','Dashboard ready');
+  document.getElementById('uploadActions').style.display='none';
+  document.getElementById('undoBtn').style.display='none';
+  document.getElementById('fileInput').value='';
+}
+
+function dlTemplate(){
+  var wb2=XLSX.utils.book_new();
+  var hdr=['Sr.No.','Date','SKU Name','Quantity','Activity'];
+  var acts=['Closing Stock Previous Month','Inward','Sales','FBA','FBF','SJIT','Stock Transfer to GGN','Stock Transfer to BLR','Stock Transfer to Store','Others','Opening Stock Next Month'];
+  var rows=[[1,'01-05-2026','ABC',100,'Closing Stock Previous Month'],[2,'01-05-2026','BCD',200,'Closing Stock Previous Month'],[3,'01-05-2026','ABC',50,'Inward'],[4,'02-05-2026','ABC',30,'Sales'],[5,'03-05-2026','BCD',20,'FBA'],[6,'04-05-2026','ABC',10,'Stock Transfer to GGN'],[7,'04-05-2026','BCD',5,'Others'],['','','','',''],['','--- VALID ACTIVITY TYPES (copy exact spelling) ---','','','']];
+  acts.forEach(function(a){rows.push(['',a,'','','']);});
+  var ws2=XLSX.utils.aoa_to_sheet([hdr].concat(rows));
+  ws2['!cols']=[{wch:8},{wch:14},{wch:14},{wch:10},{wch:38}];
+  XLSX.utils.book_append_sheet(wb2,ws2,'Input Template');
+  XLSX.writeFile(wb2,'Kheda_Warehouse_Input_Template.xlsx');
+  toast('Template downloaded!',false);
+}
+
+async function processFile(file){
+  g_errors=[];g_lastFileName=file.name;
+  setStep(1,'active','Reading: '+file.name);
+  setStep(2,'','Validating data');setStep(3,'','Computing inventory');setStep(4,'','Dashboard ready');
+  document.getElementById('uploadActions').style.display='none';
+  try{
+    var data=await file.arrayBuffer();
+    var wb_raw=XLSX.read(data,{type:'array',cellDates:true});
+    var ws=wb_raw.Sheets[wb_raw.SheetNames[0]];
+    var rows=XLSX.utils.sheet_to_json(ws,{raw:false,dateNF:'DD-MM-YYYY'});
+    if(!rows.length){toast('File is empty.');setStep(1,'error','File empty');return;}
+    setStep(1,'done','Read '+rows.length+' rows');
+    setStep(2,'active','Validating...');
+    var required=['Sr.No.','Date','SKU Name','Quantity','Activity'];
+    var cols=Object.keys(rows[0]);
+    var missing=required.filter(function(c){return !cols.some(function(k){return k.trim()===c.trim();});});
+    if(missing.length){toast('Missing columns: '+missing.join(', '));setStep(2,'error','Missing columns');return;}
+    var df=rows.map(function(r,i){
+      var act=(r['Activity']||'').trim();
+      var qty=parseFloat(r['Quantity'])||0;
+      var dt=r['Date'];
+      if(!(dt instanceof Date)){
+        var parts=String(dt).split(/[-\/]/);
+        if(parts.length===3){dt=parts[0].length===4?new Date(+parts[0],+parts[1]-1,+parts[2]):new Date(+parts[2],+parts[1]-1,+parts[0]);}
+        else{dt=new Date(dt);}
+      }
+      return{_row:i+2,date:dt,sku:(r['SKU Name']||'').trim(),qty:qty,act:act};
+    });
+    var badActs=df.filter(function(r){return!VALID_ACTS.includes(r.act);});
+    if(badActs.length){var uniq=[];badActs.forEach(function(r){if(uniq.indexOf(r.act)<0)uniq.push(r.act);});g_errors.push(badActs.length+' rows with unknown activity: '+uniq.slice(0,3).join(', '));}
+    var badDates=df.filter(function(r){return isNaN(r.date);});
+    if(badDates.length)g_errors.push(badDates.length+' rows with bad dates');
+    setStep(2,'done','Validated'+(g_errors.length?' ('+g_errors.length+' warnings)':''));
+    setStep(3,'active','Computing inventory...');
+    var clean=df.filter(function(r){return!isNaN(r.date)&&VALID_ACTS.includes(r.act);});
+    var pivot={};
+    clean.forEach(function(r){var dk=r.date.toISOString().slice(0,10);var key=dk+'|||'+r.sku;if(!pivot[key])pivot[key]={date:r.date,sku:r.sku};var col=ACT_MAP[r.act];pivot[key][col]=(pivot[key][col]||0)+r.qty;});
+    var rows2=Object.values(pivot);
+    var skus=[];rows2.forEach(function(r){if(skus.indexOf(r.sku)<0)skus.push(r.sku);});skus.sort();
+    var dateSet=[];rows2.forEach(function(r){var dk=r.date.toISOString().slice(0,10);if(dateSet.indexOf(dk)<0)dateSet.push(dk);});dateSet.sort();
+    var lkp={};rows2.forEach(function(r){lkp[r.date.toISOString().slice(0,10)+'|||'+r.sku]=r;});
+    var carry={};
+    skus.forEach(function(sku){var r=lkp[dateSet[0]+'|||'+sku];carry[sku]=r?(r.prev_closing||0):0;});
+    g_daily=[];
+    dateSet.forEach(function(dk){
+      skus.forEach(function(sku){
+        var r=lkp[dk+'|||'+sku]||{};
+        var op=carry[sku]||0;
+        var inw=r.Inward||0,sal=r.Sales||0,fba=r.FBA||0,fbf=r.FBF||0,sjt=r.SJIT||0,ggn=r.Transfer_GGN||0,blr=r.Transfer_BLR||0,sto=r.Transfer_Store||0,oth=r.Others||0;
+        var cl=op+inw-sal-fba-fbf-sjt-ggn-blr-sto-oth;
+        if(cl<0)g_errors.push('Negative stock: '+sku+' on '+dk);
+        g_daily.push({date:new Date(dk+'T00:00:00'),dk:dk,sku:sku,op:op,inw:inw,sal:sal,fba:fba,fbf:fbf,sjt:sjt,ggn:ggn,blr:blr,sto:sto,oth:oth,cl:cl});
+        carry[sku]=cl;
+      });
+    });
+    g_sku=skus.map(function(sku){
+      var rs=g_daily.filter(function(r){return r.sku===sku;});
+      function sm(f){return rs.reduce(function(a,r){return a+r[f];},0);}
+      var op=rs[0]?rs[0].op:0,cl=rs[rs.length-1]?rs[rs.length-1].cl:0;
+      var totOut=sm('sal')+sm('fba')+sm('fbf')+sm('sjt')+sm('ggn')+sm('blr')+sm('sto')+sm('oth');
+      var drr=(sm('sal')+sm('fba')+sm('fbf')+sm('sjt'))/Math.max(rs.length,1);
+      return{sku:sku,op:op,inw:sm('inw'),sal:sm('sal'),fba:sm('fba'),fbf:sm('fbf'),sjt:sm('sjt'),ggn:sm('ggn'),blr:sm('blr'),sto:sm('sto'),oth:sm('oth'),totOut:totOut,cl:cl,doi:drr>0?(cl/drr).toFixed(1):'N/A'};
+    });
+    var outs=g_sku.map(function(r){return r.totOut;}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});
+    var q33=outs[Math.floor(outs.length*.33)]||0,q66=outs[Math.floor(outs.length*.66)]||0;
+    g_sku.forEach(function(r){r.tag=r.totOut===0?'Dead Stock':r.totOut>=q66?'Fast Moving':r.totOut>=q33?'Medium Moving':'Slow Moving';});
+    var sklast={},skfirst={};
+    g_daily.forEach(function(r){sklast[r.sku]=r.cl;if(skfirst[r.sku]===undefined)skfirst[r.sku]=r.op;});
+    var totalCl=Object.values(sklast).reduce(function(a,v){return a+v;},0);
+    var totalOp=Object.values(skfirst).reduce(function(a,v){return a+v;},0);
+    function sm2(f){return g_daily.reduce(function(a,r){return a+r[f];},0);}
+    g_kpis={opening:totalOp,inward:sm2('inw'),sales:sm2('sal'),fba:sm2('fba'),fbf:sm2('fbf'),sjit:sm2('sjt'),ggn:sm2('ggn'),blr:sm2('blr'),store:sm2('sto'),others:sm2('oth'),closing:totalCl,util:(totalCl/CAPACITY*100).toFixed(2),period:dateSet[0].slice(0,7)};
+    g_kpis.transfers=g_kpis.ggn+g_kpis.blr+g_kpis.store+g_kpis.others;
+    setStep(3,'done','Computed '+g_daily.length+' records');
+    setStep(4,'active','Rendering...');
+    pushHistory(file.name);
+    renderDashboard();renderDaily();renderSKU();renderAlerts();
+    setStep(4,'done','Dashboard ready!');
+    document.getElementById('uploadActions').style.display='flex';
+    document.getElementById('undoBtn').style.display='inline-flex';
+    toast('Loaded: '+file.name,false);
+  }catch(err){setStep(3,'error','Error: '+err.message);toast('Error: '+err.message);console.error(err);}
+}
+
+function fmt(n){return typeof n!=='number'?n:n.toLocaleString('en-IN',{maximumFractionDigits:0});}
+function fmtDate(d){if(!(d instanceof Date))return d;return String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear();}
+
+function renderDashboard(){
+  var k=g_kpis;
+  document.getElementById('kOpening').textContent=fmt(k.opening);
+  document.getElementById('kInward').textContent=fmt(k.inward);
+  document.getElementById('kSales').textContent=fmt(k.sales);
+  document.getElementById('kFBA').textContent=fmt(k.fba+k.fbf+k.sjit);
+  document.getElementById('kGGN').textContent=fmt(k.ggn+k.blr);
+  document.getElementById('kStore').textContent=fmt(k.store);
+  document.getElementById('kOthers').textContent=fmt(k.others);
+  document.getElementById('kClosing').textContent=fmt(k.closing);
+  document.getElementById('kUtil').textContent=k.util+'%';
+  document.getElementById('capPct').textContent=k.util+'% '+(+k.util>100?'\uD83D\uDD34':+k.util>75?'\u26A0\uFE0F':'\u2705');
+  document.getElementById('capBar').style.width=Math.min(+k.util,100)+'%';
+  document.getElementById('csStock').textContent=fmt(k.closing);
+  document.getElementById('csAvail').textContent=fmt(CAPACITY-k.closing);
+  document.getElementById('csPeriod').textContent=k.period;
+  document.getElementById('utilPill').textContent='\u26A1 '+k.util+'% utilized';
+  document.getElementById('periodPill').textContent='\uD83D\uDDD3 '+k.period+' \u00B7 '+g_sku.length+' SKUs';
+  document.getElementById('flowPeriod').textContent=k.period;
+  var b=document.getElementById('dataBanner');
+  b.className='data-banner db-fresh';
+  b.textContent='\u2705 Loaded '+k.period+' \u2014 '+g_daily.length+' records, '+g_sku.length+' SKUs.';
+  var vb=document.getElementById('valBanner');
+  if(g_errors.length){vb.style.display='flex';vb.style.background='rgba(255,71,87,.08)';vb.style.borderColor='rgba(255,71,87,.3)';vb.style.color='var(--danger)';vb.textContent='\u26A0\uFE0F '+g_errors.length+' warnings: '+g_errors.slice(0,2).join(' | ');}
+  else{vb.style.display='flex';vb.style.removeProperty('background');vb.style.removeProperty('border-color');vb.style.removeProperty('color');vb.textContent='\u2705 All records validated, no errors.';}
+}
+
+function renderDaily(){
+  document.getElementById('dtbody').innerHTML=g_daily.map(function(r){
+    var cn=r.cl<0?'vn':r.cl<50?'vw':'';
+    return '<tr><td>'+fmtDate(r.date)+'</td><td>'+r.sku+'</td><td>'+fmt(r.op)+'</td>'
+      +'<td class="'+(r.inw>0?'vp':'vz')+'">'+fmt(r.inw)+'</td>'
+      +'<td class="'+(r.sal>0?'vn':'vz')+'">'+fmt(r.sal)+'</td>'
+      +'<td class="'+(r.fba>0?'vn':'vz')+'">'+fmt(r.fba)+'</td>'
+      +'<td class="'+(r.fbf>0?'vn':'vz')+'">'+fmt(r.fbf)+'</td>'
+      +'<td class="'+(r.sjt>0?'vn':'vz')+'">'+fmt(r.sjt)+'</td>'
+      +'<td class="'+(r.ggn>0?'vn':'vz')+'">'+fmt(r.ggn)+'</td>'
+      +'<td class="'+(r.blr>0?'vn':'vz')+'">'+fmt(r.blr)+'</td>'
+      +'<td class="'+(r.sto>0?'vn':'vz')+'">'+fmt(r.sto)+'</td>'
+      +'<td class="'+(r.oth>0?'vn':'vz')+'">'+fmt(r.oth)+'</td>'
+      +'<td class="'+cn+'">'+fmt(r.cl)+'</td></tr>';
+  }).join('');
+}
+
+function renderSKU(){
+  var tc={'Fast Moving':'bf','Medium Moving':'bm','Slow Moving':'bs','Dead Stock':'bd'};
+  document.getElementById('skbody').innerHTML=g_sku.map(function(r){
+    var cn=r.cl<0?'vn':r.cl<50?'vw':'';
+    return '<tr><td>'+r.sku+'</td><td>'+fmt(r.op)+'</td>'
+      +'<td class="'+(r.inw>0?'vp':'vz')+'">'+fmt(r.inw)+'</td>'
+      +'<td class="'+(r.sal>0?'vn':'vz')+'">'+fmt(r.sal)+'</td>'
+      +'<td class="'+(r.fba>0?'vn':'vz')+'">'+fmt(r.fba)+'</td>'
+      +'<td class="'+(r.fbf>0?'vn':'vz')+'">'+fmt(r.fbf)+'</td>'
+      +'<td class="'+(r.sjt>0?'vn':'vz')+'">'+fmt(r.sjt)+'</td>'
+      +'<td class="'+(r.ggn>0?'vn':'vz')+'">'+fmt(r.ggn)+'</td>'
+      +'<td class="'+(r.blr>0?'vn':'vz')+'">'+fmt(r.blr)+'</td>'
+      +'<td class="'+(r.sto>0?'vn':'vz')+'">'+fmt(r.sto)+'</td>'
+      +'<td class="'+(r.oth>0?'vn':'vz')+'">'+fmt(r.oth)+'</td>'
+      +'<td class="'+(r.totOut>0?'vn':'vz')+'">'+fmt(r.totOut)+'</td>'
+      +'<td class="'+cn+'">'+fmt(r.cl)+'</td>'
+      +'<td>'+r.doi+'</td>'
+      +'<td><span class="badge '+(tc[r.tag]||'bd')+'">'+r.tag.replace(' Moving','')+'</span></td></tr>';
+  }).join('');
+}
+
+function renderAlerts(){
+  function dL(u,d){return d===0?Infinity:+(u/d).toFixed(1);}
+  function sC(d){return d===Infinity?'var(--dim)':d<=3?'var(--danger)':d<=7?'var(--warn)':d<=14?'var(--amber)':'var(--ok)';}
+  function mC(d){return d===Infinity?'#3A5A7F':d<=3?'#FF4757':d<=7?'#FFA502':'#2ED573';}
+  var skuData=g_sku.map(function(r){
+    var days_n=g_daily.filter(function(d){return d.sku===r.sku;}).length;
+    var drr=(r.sal+r.fba+r.fbf+r.sjt)/Math.max(1,days_n);
+    return{sku:r.sku,units:r.cl,drr:drr};
+  });
+  var alerts=skuData.filter(function(s){return dL(s.units,s.drr)<=14&&s.drr>0;});
+  document.getElementById('ac').textContent=alerts.length;
+  document.getElementById('acards').innerHTML=alerts.map(function(s){
+    var d=dL(s.units,s.drr),col=sC(d),mc=mC(d),pct=Math.min(100,Math.round(d/30*100));
+    return '<div class="acard"><div><div style="font-family:var(--fd);font-size:19px;font-weight:800">'+s.sku+'</div>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+fmt(s.units)+' units &middot; DRR: '+s.drr.toFixed(1)+'/day</div></div>'
+      +'<div class="ameter"><div style="font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.8px">Days Remaining</div>'
+      +'<div class="amtrk"><div class="amfil" style="width:'+pct+'%;background:'+mc+'"></div></div></div>'
+      +'<div><div class="adays" style="color:'+col+'">'+d+'</div><div style="font-size:10px;color:var(--muted);text-align:center">days left</div></div>'
+      +'<div style="font-size:26px">'+(d<=3?'\uD83C\uDD98':'\u26A0\uFE0F')+'</div></div>';
+  }).join('');
+  document.getElementById('sht').innerHTML=skuData.map(function(s){
+    var d=dL(s.units,s.drr),col=sC(d),disp=d===Infinity?'\u221E':d;
+    var em=s.drr===0?'\u26AA Dead Stock':d<=3?'\uD83D\uDD34 Critical':d<=7?'\uD83D\uDFE0 Warning':d<=14?'\uD83D\uDFE1 Watch':'\uD83D\uDFE2 Healthy';
+    return '<tr><td>'+s.sku+'</td><td style="color:'+col+';text-align:right">'+fmt(s.units)+'</td>'
+      +'<td style="text-align:right">'+s.drr.toFixed(1)+'</td>'
+      +'<td style="color:'+col+';text-align:right;font-weight:700">'+disp+'</td>'
+      +'<td style="text-align:right">'+em+'</td></tr>';
+  }).join('');
+}
+
+function dlT(tid,name){
+  var rows=document.querySelectorAll('#'+tid+' tr');
+  var lines=[];
+  rows.forEach(function(r){
+    var cells=[];
+    r.querySelectorAll('th,td').forEach(function(c){cells.push('"'+c.innerText.replace(/"/g,'""')+'"');});
+    lines.push(cells.join(','));
+  });
+  dlRaw(lines.join('\r\n'),name+'_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
+}
+
+function dlAlerts(){
+  var lines=['"SKU","Units","DRR","Days Remaining","Status"'];
+  g_sku.forEach(function(r){
+    var dn=g_daily.filter(function(d){return d.sku===r.sku;}).length;
+    var drr=(r.sal+r.fba+r.fbf+r.sjt)/Math.max(1,dn);
+    var d=drr===0?'N/A':(r.cl/drr).toFixed(1);
+    var st=drr===0?'Dead Stock':+d<=3?'Critical':+d<=7?'Warning':+d<=14?'Watch':'Healthy';
+    lines.push('"'+r.sku+'","'+r.cl+'","'+drr.toFixed(1)+'","'+d+'","'+st+'"');
+  });
+  dlRaw(lines.join('\r\n'),'stockout_alerts_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
+}
+
+function dlDailyCSV(){
+  var lines=['"Date","SKU","Opening","Inward","Sales","FBA","FBF","SJIT","GGN","BLR","Store","Others","Closing"'];
+  g_daily.forEach(function(r){lines.push([fmtDate(r.date),r.sku,r.op,r.inw,r.sal,r.fba,r.fbf,r.sjt,r.ggn,r.blr,r.sto,r.oth,r.cl].map(function(v){return'"'+v+'"';}).join(','));});
+  dlRaw(lines.join('\r\n'),'daily_inventory_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
+}
+
+function dlProcessedExcel(){
+  if(!g_daily.length){toast('No data to export.');return;}
+  var wb2=XLSX.utils.book_new();
+  var dH=['Date','SKU','Opening','Inward','Sales','FBA','FBF','SJIT','GGN','BLR','Store','Others','Closing'];
+  var dD=[dH];g_daily.forEach(function(r){dD.push([fmtDate(r.date),r.sku,r.op,r.inw,r.sal,r.fba,r.fbf,r.sjt,r.ggn,r.blr,r.sto,r.oth,r.cl]);});
+  XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet(dD),'Daily Inventory');
+  var sH=['SKU','Opening','Inward','Sales','FBA','FBF','SJIT','GGN','BLR','Store','Others','Total Out','Closing','DOI','Tag'];
+  var sD=[sH];g_sku.forEach(function(r){sD.push([r.sku,r.op,r.inw,r.sal,r.fba,r.fbf,r.sjt,r.ggn,r.blr,r.sto,r.oth,r.totOut,r.cl,r.doi,r.tag]);});
+  XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet(sD),'SKU Summary');
+  var kD=[['Metric','Value'],['Period',g_kpis.period],['Opening',g_kpis.opening],['Inward',g_kpis.inward],['Sales',g_kpis.sales],['FBA',g_kpis.fba],['FBF',g_kpis.fbf],['SJIT',g_kpis.sjit],['GGN',g_kpis.ggn],['BLR',g_kpis.blr],['Store',g_kpis.store],['Others',g_kpis.others],['Closing',g_kpis.closing],['Capacity %',g_kpis.util],['Capacity Units',CAPACITY]];
+  XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet(kD),'Dashboard KPIs');
+  XLSX.writeFile(wb2,'Kheda_Inventory_'+(g_kpis.period?g_kpis.period.replace('-','_'):'export')+'.xlsx');
+}
+
+function dlRaw(content,name,type){
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type:type}));
+  a.download=name;a.click();
+}
+</script>
+</body>
+</html>
