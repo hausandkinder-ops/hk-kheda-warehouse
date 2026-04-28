@@ -379,183 +379,8 @@ footer em{color:var(--muted);font-style:normal;}
       <button class="btn bb" onclick="document.getElementById('flowc').requestFullscreen&&document.getElementById('flowc').requestFullscreen()">⛶ Full Screen</button>
     </div>
     <div class="flow-svgc" id="flowc">
-<svg viewBox="0 0 1600 820" xmlns="http://www.w3.org/2000/svg" width="1600" height="820">
-  <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0D1B2A"/>
-      <stop offset="100%" style="stop-color:#0A2540"/>
-    </linearGradient>
-    <linearGradient id="whGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0F3460"/>
-      <stop offset="100%" style="stop-color:#1A4A80"/>
-    </linearGradient>
-    <filter id="shadow">
-      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.5"/>
-    </filter>
-    <filter id="glowblue">
-      <feGaussianBlur stdDeviation="6" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <marker id="ac" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#00D2AA"/></marker>
-    <marker id="ab" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#4A90E2"/></marker>
-    <marker id="ar" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#FF6B6B"/></marker>
-    <marker id="ap" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#CE93D8"/></marker>
-    <marker id="at" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64B5F6"/></marker>
-    <marker id="aa" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#FFB74D"/></marker>
-    <marker id="as" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#81D4FA"/></marker>
-    <marker id="ag" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#66BB6A"/></marker>
-    <marker id="ao" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#F06292"/></marker>
-  </defs>
-
-  <rect width="1600" height="820" fill="url(#bgGrad)"/>
-  <pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-    <circle cx="20" cy="20" r="1.2" fill="#1A3A5F" opacity="0.5"/>
-  </pattern>
-  <rect width="1600" height="820" fill="url(#dots)"/>
-
-  <!-- TITLE -->
-  <text x="800" y="50" text-anchor="middle" font-family="Arial Black,sans-serif"
-        font-size="30" font-weight="900" fill="white" letter-spacing="1">
-    GUJARAT KHEDA WAREHOUSE — INVENTORY FLOW
-  </text>
-  <text x="800" y="76" text-anchor="middle" font-family="Arial,sans-serif"
-        font-size="15" fill="#6AABF7" font-style="italic">
-    MAY 2026  ·  All figures in units  ·  Total Capacity: 2,35,000 units
-  </text>
-
-  <!-- INWARD (top centre, cx=800) -->
-  <rect x="690" y="96" width="220" height="100" rx="12" fill="#0A2540" stroke="#00D2AA" stroke-width="2.5" filter="url(#shadow)"/>
-  <rect x="690" y="96" width="220" height="22" rx="12" fill="#00D2AA" opacity="0.7"/>
-  <rect x="690" y="108" width="220" height="10" fill="#00D2AA" opacity="0.7"/>
-  <text x="800" y="114" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">INWARD</text>
-  <text x="800" y="143" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#8FBCDB">Stock Received</text>
-  <text x="800" y="170" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="19" font-weight="900" fill="#00FFC6">+400 units</text>
-  <line x1="800" y1="196" x2="800" y2="280" stroke="#00D2AA" stroke-width="3" marker-end="url(#ac)" opacity="0.9"/>
-  <text x="816" y="242" font-family="Arial,sans-serif" font-size="13" fill="#00D2AA" font-weight="bold">+ IN</text>
-
-  <!-- CENTRAL WAREHOUSE BOX (cx=800, y=287–472) -->
-  <rect x="620" y="287" width="360" height="185" rx="16" fill="#0A1F3A" stroke="#4A90E2" stroke-width="3" filter="url(#glowblue)"/>
-  <rect x="620" y="287" width="360" height="185" rx="16" fill="url(#whGrad)" opacity="0.9"/>
-  <line x1="622" y1="342" x2="978" y2="342" stroke="#1E6FD9" stroke-width="0.8" opacity="0.4"/>
-  <line x1="622" y1="397" x2="978" y2="397" stroke="#1E6FD9" stroke-width="0.8" opacity="0.4"/>
-  <line x1="800" y1="289" x2="800" y2="470" stroke="#1E6FD9" stroke-width="0.8" opacity="0.4"/>
-  <text x="800" y="326" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="24" font-weight="900" fill="white" letter-spacing="1">GUJARAT KHEDA</text>
-  <text x="800" y="354" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="17" font-weight="900" fill="#4A90E2" letter-spacing="2">WAREHOUSE</text>
-  <text x="800" y="378" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" fill="#6AABF7" font-style="italic">MAY 2026</text>
-  <rect x="650" y="392" width="300" height="20" rx="10" fill="#1E3A5F" stroke="#2A5A9F" stroke-width="1"/>
-  <rect x="650" y="392" width="6" height="20" rx="10" fill="#00D2AA"/>
-  <text x="800" y="407" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#8FBCDB" font-weight="bold">Capacity: Upload data to update</text>
-  <text x="800" y="446" text-anchor="middle" font-family="Arial,sans-serif" font-size="10.5" fill="#5A8CAE" font-style="italic">Closing = Opening + Inward − Sales − FBA − FBF − SJIT − Transfers − Others</text>
-
-  <!-- LEFT: APRIL CLOSING (cx=140) -->
-  <rect x="30" y="308" width="220" height="130" rx="12" fill="#0A2540" stroke="#00D2AA" stroke-width="2.5" filter="url(#shadow)"/>
-  <rect x="30" y="308" width="220" height="22" rx="12" fill="#00D2AA" opacity="0.65"/>
-  <rect x="30" y="320" width="220" height="10" fill="#00D2AA" opacity="0.65"/>
-  <text x="140" y="327" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="14" font-weight="900" fill="white">APRIL 2026</text>
-  <text x="140" y="357" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Closing Stock (IN)</text>
-  <text x="140" y="388" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#00FFC6">— units</text>
-  <text x="140" y="413" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">Opening Balance →</text>
-  <line x1="250" y1="373" x2="615" y2="373" stroke="#00D2AA" stroke-width="3" marker-end="url(#ac)" opacity="0.9"/>
-  <text x="430" y="362" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#00D2AA" font-weight="bold">Opening Balance</text>
-
-  <!-- RIGHT: MAY CLOSING (cx=1460) -->
-  <rect x="1350" y="308" width="220" height="130" rx="12" fill="#0A2540" stroke="#4A90E2" stroke-width="2.5" filter="url(#shadow)"/>
-  <rect x="1350" y="308" width="220" height="22" rx="12" fill="#4A90E2" opacity="0.65"/>
-  <rect x="1350" y="320" width="220" height="10" fill="#4A90E2" opacity="0.65"/>
-  <text x="1460" y="327" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="14" font-weight="900" fill="white">MAY 2026</text>
-  <text x="1460" y="357" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Closing Stock (OUT)</text>
-  <text x="1460" y="388" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#7DD3FC">— units</text>
-  <text x="1460" y="413" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">← End Balance</text>
-  <line x1="980" y1="373" x2="1345" y2="373" stroke="#4A90E2" stroke-width="3" marker-end="url(#ab)" opacity="0.9"/>
-  <text x="1163" y="362" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#4A90E2" font-weight="bold">End Balance</text>
-
-  <!-- BOTTOM OUTFLOW NODES — 7 nodes, cx: 115,315,515,715,915,1115,1315  width=162 gap=38 -->
-
-  <!-- helper macro: each node = arrow from y=472 to y=568, box from y=570 to y=718 -->
-
-  <!-- 1 SALES cx=115 -->
-  <line x1="115" y1="472" x2="115" y2="566" stroke="#FF6B6B" stroke-width="3" marker-end="url(#ar)" opacity="0.9"/>
-  <rect x="34" y="568" width="162" height="148" rx="12" fill="#1A0808" stroke="#FF6B6B" stroke-width="2.5" filter="url(#shadow)"/>
-  <rect x="34" y="568" width="162" height="22" rx="12" fill="#FF6B6B" opacity="0.75"/>
-  <rect x="34" y="580" width="162" height="10" fill="#FF6B6B" opacity="0.75"/>
-  <text x="115" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">SALES</text>
-  <text x="115" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Direct Orders</text>
-  <text x="115" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#FF6B6B">300 units</text>
-  <text x="115" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
-
-  <!-- 2 FBA cx=315 -->
-  <line x1="315" y1="472" x2="315" y2="566" stroke="#CE93D8" stroke-width="3" marker-end="url(#ap)" opacity="0.9"/>
-  <rect x="234" y="568" width="162" height="148" rx="12" fill="#130A18" stroke="#CE93D8" stroke-width="2.5" filter="url(#shadow)"/>
-  <rect x="234" y="568" width="162" height="22" rx="12" fill="#CE93D8" opacity="0.7"/>
-  <rect x="234" y="580" width="162" height="10" fill="#CE93D8" opacity="0.7"/>
-  <text x="315" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">FBA</text>
-  <text x="315" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Amazon Fulfilment</text>
-  <text x="315" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#CE93D8">100 units</text>
-  <text x="315" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
-
-  <!-- 3 FBF cx=515 -->
-  <line x1="515" y1="472" x2="515" y2="566" stroke="#64B5F6" stroke-width="3" marker-end="url(#at)" opacity="0.9"/>
-  <rect x="434" y="568" width="162" height="148" rx="12" fill="#080F1A" stroke="#64B5F6" stroke-width="2.5" filter="url(#shadow)"/>
-  <rect x="434" y="568" width="162" height="22" rx="12" fill="#64B5F6" opacity="0.7"/>
-  <rect x="434" y="580" width="162" height="10" fill="#64B5F6" opacity="0.7"/>
-  <text x="515" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">FBF</text>
-  <text x="515" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Flipkart Fulfilment</text>
-  <text x="515" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#64B5F6">0 units</text>
-  <text x="515" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
-
-  <!-- 4 SJIT cx=715 -->
-  <line x1="715" y1="472" x2="715" y2="566" stroke="#FFB74D" stroke-width="3" marker-end="url(#aa)" opacity="0.9"/>
-  <rect x="634" y="568" width="162" height="148" rx="12" fill="#18100A" stroke="#FFB74D" stroke-width="2.5" filter="url(#shadow)"/>
-  <rect x="634" y="568" width="162" height="22" rx="12" fill="#FFB74D" opacity="0.7"/>
-  <rect x="634" y="580" width="162" height="10" fill="#FFB74D" opacity="0.7"/>
-  <text x="715" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">SJIT</text>
-  <text x="715" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Just-In-Time</text>
-  <text x="715" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#FFB74D">0 units</text>
-  <text x="715" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
-
-  <!-- 5 GGN+BLR cx=915 -->
-  <line x1="915" y1="472" x2="915" y2="566" stroke="#81D4FA" stroke-width="3" marker-end="url(#as)" opacity="0.9"/>
-  <rect x="834" y="568" width="162" height="148" rx="12" fill="#081018" stroke="#81D4FA" stroke-width="2.5" filter="url(#shadow)"/>
-  <rect x="834" y="568" width="162" height="22" rx="12" fill="#81D4FA" opacity="0.7"/>
-  <rect x="834" y="580" width="162" height="10" fill="#81D4FA" opacity="0.7"/>
-  <text x="915" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="14" font-weight="900" fill="white">GGN + BLR</text>
-  <text x="915" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">WH Transfers</text>
-  <text x="915" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#81D4FA">100 units</text>
-  <text x="915" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
-
-  <!-- 6 STORE cx=1115 -->
-  <line x1="1115" y1="472" x2="1115" y2="566" stroke="#66BB6A" stroke-width="3" marker-end="url(#ag)" opacity="0.9"/>
-  <rect x="1034" y="568" width="162" height="148" rx="12" fill="#081208" stroke="#66BB6A" stroke-width="2.5" filter="url(#shadow)"/>
-  <rect x="1034" y="568" width="162" height="22" rx="12" fill="#66BB6A" opacity="0.7"/>
-  <rect x="1034" y="580" width="162" height="10" fill="#66BB6A" opacity="0.7"/>
-  <text x="1115" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">STORE</text>
-  <text x="1115" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Store Transfers</text>
-  <text x="1115" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#66BB6A">0 units</text>
-  <text x="1115" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
-
-  <!-- 7 OTHERS cx=1315 -->
-  <line x1="1315" y1="472" x2="1315" y2="566" stroke="#F06292" stroke-width="3" marker-end="url(#ao)" opacity="0.9"/>
-  <rect x="1234" y="568" width="162" height="148" rx="12" fill="#180A10" stroke="#F06292" stroke-width="2.5" filter="url(#shadow)"/>
-  <rect x="1234" y="568" width="162" height="22" rx="12" fill="#F06292" opacity="0.7"/>
-  <rect x="1234" y="580" width="162" height="10" fill="#F06292" opacity="0.7"/>
-  <text x="1315" y="587" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="15" font-weight="900" fill="white">OTHERS</text>
-  <text x="1315" y="618" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#8FBCDB">Uncategorised</text>
-  <text x="1315" y="652" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="#F06292">0 units</text>
-  <text x="1315" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6AABF7">May outflow</text>
-
-  <!-- LEGEND -->
-  <rect x="30" y="748" width="1540" height="54" rx="10" fill="#0D1B2A" stroke="#1E3A5F" stroke-width="1"/>
-  <circle cx="65"   cy="775" r="8" fill="#00D2AA"/> <text x="79"   y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">Inward/Opening</text>
-  <circle cx="205"  cy="775" r="8" fill="#FF6B6B"/> <text x="219"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">Sales</text>
-  <circle cx="290"  cy="775" r="8" fill="#CE93D8"/> <text x="304"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">FBA</text>
-  <circle cx="370"  cy="775" r="8" fill="#64B5F6"/> <text x="384"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">FBF</text>
-  <circle cx="450"  cy="775" r="8" fill="#FFB74D"/> <text x="464"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">SJIT</text>
-  <circle cx="535"  cy="775" r="8" fill="#81D4FA"/> <text x="549"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">GGN+BLR Transfers</text>
-  <circle cx="720"  cy="775" r="8" fill="#66BB6A"/> <text x="734"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">Store Transfers</text>
-  <circle cx="870"  cy="775" r="8" fill="#F06292"/> <text x="884"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">Others</text>
-  <circle cx="960"  cy="775" r="8" fill="#4A90E2"/> <text x="974"  y="780" font-family="Arial,sans-serif" font-size="13" fill="#C8DDF0" font-weight="bold">Closing Stock</text>
-</svg>
-    </div>
+<canvas id="flowCanvas" style="width:100%;display:block;background:#0D1B2A;min-height:420px"></canvas>
+</div>
     <div class="flow-cap">
       <span class="fleg"><span class="fdot" style="background:#00D2AA"></span>Inward/Opening</span>
       <span class="fleg"><span class="fdot" style="background:#FF6B6B"></span>Sales</span>
@@ -601,7 +426,7 @@ const ACT_MAP = {'Closing Stock Previous Month':'prev_closing','Inward':'Inward'
 var g_daily=[], g_sku=[], g_kpis={}, g_errors=[];
 var MAX_HISTORY=5, g_history=[], g_lastFileName='';
 
-function show(id,btn){document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('on');});document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('on');});document.getElementById(id).classList.add('on');if(btn)btn.classList.add('on');}
+function show(id,btn){document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('on');});document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('on');});document.getElementById(id).classList.add('on');if(btn)btn.classList.add('on');if(id==='flow')renderFlowDiagram();}
 
 function ft(tid,q){document.querySelectorAll('#'+tid+' tbody tr').forEach(function(r){r.style.display=r.textContent.toLowerCase().indexOf(q.toLowerCase())>=0?'':'none';});}
 
@@ -769,7 +594,7 @@ async function processFile(file){
     renderDashboard();renderDaily();renderSKU();renderAlerts();saveToStorage();
     setStep(4,'done','Dashboard ready!');
     document.getElementById('uploadActions').style.display='flex';
-    document.getElementById('undoBtn').style.display='inline-flex';
+    document.getElementById('undoBtn').style.display='inline-flex';if(document.getElementById('flow').classList.contains('on'))renderFlowDiagram();
     toast('Loaded: '+file.name,false);
   }catch(err){setStep(3,'error','Error: '+err.message);toast('Error: '+err.message);console.error(err);}
 }
@@ -955,7 +780,7 @@ function clearStorage(){
 window.addEventListener('load', function(){
   var savedAt = loadFromStorage();
   if(savedAt){
-    renderDashboard(); renderDaily(); renderSKU(); renderAlerts();
+    renderDashboard(); renderDaily(); renderSKU(); renderAlerts(); renderFlowDiagram();
     document.getElementById('uploadActions').style.display='flex';
     document.getElementById('undoBtn').style.display='inline-flex';
     var b = document.getElementById('dataBanner');
@@ -963,6 +788,237 @@ window.addEventListener('load', function(){
     b.textContent='Restored from last session ('+savedAt+'). Upload a new file to update.';
   }
 });
+
+// ═══════════════════════════════════════════════
+// DYNAMIC FLOW DIAGRAM — drawn on canvas from live data
+// ═══════════════════════════════════════════════
+function renderFlowDiagram(){
+  var canvas = document.getElementById('flowCanvas');
+  if(!canvas) return;
+
+  var DPR = window.devicePixelRatio || 1;
+  var W   = canvas.offsetWidth  || 1200;
+  var H   = Math.round(W * 0.52);   // maintain aspect ratio
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  canvas.style.height = H + 'px';
+
+  var ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  var k = g_kpis;
+  var hasData = k && k.closing !== undefined;
+
+  // ── scale helpers
+  var sx = function(x){ return x / 1600 * W; };
+  var sy = function(y){ return y / 820  * H; };
+  var sf = function(f){ return Math.max(9, f / 1600 * W); };
+
+  // ── BACKGROUND
+  var bg = ctx.createLinearGradient(0,0,W,H);
+  bg.addColorStop(0,'#0D1B2A'); bg.addColorStop(1,'#0A2540');
+  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+
+  // dot grid
+  ctx.fillStyle = 'rgba(26,58,95,0.45)';
+  for(var gx=0.6; gx<1600; gx+=40){
+    for(var gy=0.6; gy<820; gy+=40){
+      ctx.beginPath(); ctx.arc(sx(gx),sy(gy),sx(1.2),0,Math.PI*2); ctx.fill();
+    }
+  }
+
+  // ── TITLE
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold ' + sf(28) + 'px Arial Black, sans-serif';
+  ctx.fillText('GUJARAT KHEDA WAREHOUSE — INVENTORY FLOW', W/2, sy(50));
+  ctx.fillStyle = '#6AABF7';
+  ctx.font = 'italic ' + sf(14) + 'px Arial, sans-serif';
+  var period = (k && k.period) ? k.period : '— Upload data to populate —';
+  ctx.fillText(period + '   ·   Capacity: 2,35,000 units', W/2, sy(76));
+
+  // ── Helper: rounded rectangle
+  function roundRect(x,y,w,h,r,fill,stroke,lw){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath();
+    if(fill){ ctx.fillStyle=fill; ctx.fill(); }
+    if(stroke){ ctx.strokeStyle=stroke; ctx.lineWidth=lw||2; ctx.stroke(); }
+  }
+
+  // ── Helper: arrow
+  function arrow(x1,y1,x2,y2,col){
+    var angle = Math.atan2(y2-y1,x2-x1);
+    var len   = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+    if(len < 4) return;
+    ctx.save();
+    // glow
+    ctx.strokeStyle = col; ctx.lineWidth = sx(5); ctx.globalAlpha=0.18;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    ctx.globalAlpha=1;
+    // line
+    ctx.lineWidth = sx(3);
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    // arrowhead
+    var hs = sx(12);
+    ctx.fillStyle=col;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - hs*Math.cos(angle-0.4), y2 - hs*Math.sin(angle-0.4));
+    ctx.lineTo(x2 - hs*Math.cos(angle+0.4), y2 - hs*Math.sin(angle+0.4));
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  // ── Helper: draw a node box
+  function node(cx,cy,w,h,title,sub,val,bgCol,glowCol,valCol){
+    var x=sx(cx)-sx(w)/2, y=sy(cy)-sy(h)/2, bw=sx(w), bh=sy(h);
+    // glow halo
+    ctx.save(); ctx.globalAlpha=0.2;
+    roundRect(x-sx(8),y-sy(8),bw+sx(16),bh+sy(16),sx(16),glowCol,null);
+    ctx.restore();
+    // box
+    roundRect(x,y,bw,bh,sx(12),'#0A2540',glowCol,sx(2.5));
+    // top stripe
+    roundRect(x+sx(4),y+sy(4),bw-sx(8),sy(22),sx(6),glowCol,null);
+    // texts
+    ctx.textAlign='center';
+    ctx.fillStyle='white';
+    ctx.font='bold '+sf(13)+'px Arial Black, sans-serif';
+    ctx.fillText(title, sx(cx), y+sy(h)*0.38);
+    ctx.fillStyle='#8FBCDB';
+    ctx.font=sf(11)+'px Arial, sans-serif';
+    ctx.fillText(sub, sx(cx), y+sy(h)*0.58);
+    ctx.fillStyle = valCol||'#FFD700';
+    ctx.font='bold '+sf(16)+'px Arial Black, sans-serif';
+    ctx.fillText(val, sx(cx), y+sy(h)*0.82);
+  }
+
+  function fmtN(n){ return (typeof n==='number') ? n.toLocaleString('en-IN') : (n||'0'); }
+  var op  = hasData ? fmtN(k.opening)  : '—';
+  var inw = hasData ? fmtN(k.inward)   : '—';
+  var sal = hasData ? fmtN(k.sales)    : '—';
+  var fba = hasData ? fmtN(k.fba)      : '—';
+  var fbf = hasData ? fmtN(k.fbf)      : '—';
+  var sjt = hasData ? fmtN(k.sjit)     : '—';
+  var ggn = hasData ? fmtN(k.ggn+k.blr): '—';
+  var sto = hasData ? fmtN(k.store)    : '—';
+  var oth = hasData ? fmtN(k.others)   : '—';
+  var cl  = hasData ? fmtN(k.closing)  : '—';
+
+  // ── Central warehouse glow rings
+  ctx.save();
+  [4.0,3.0,2.2].forEach(function(r,i){
+    ctx.globalAlpha=[0.05,0.08,0.11][i];
+    ctx.beginPath(); ctx.arc(W/2, sy(7*820/12), sx(r*60),0,Math.PI*2);
+    ctx.fillStyle='#4A90E2'; ctx.fill();
+  });
+  ctx.restore();
+
+  // ── Central warehouse box
+  var CX=800, CY=370, BW=380, BH=200;
+  var cx=sx(CX)-sx(BW)/2, cy=sy(CY)-sy(BH)/2, cbw=sx(BW), cbh=sy(BH);
+  // outer glow
+  ctx.save(); ctx.globalAlpha=0.12;
+  roundRect(cx-sx(20),cy-sy(20),cbw+sx(40),cbh+sy(40),sx(20),'#1E6FD9',null);
+  ctx.restore();
+  // box fill gradient
+  var wg = ctx.createLinearGradient(cx,cy,cx+cbw,cy+cbh);
+  wg.addColorStop(0,'#0F3460'); wg.addColorStop(1,'#1A4A80');
+  roundRect(cx,cy,cbw,cbh,sx(16),wg,'#4A90E2',sx(3));
+  // inner grid lines
+  ctx.strokeStyle='rgba(30,111,217,0.35)'; ctx.lineWidth=sx(0.8);
+  ctx.beginPath(); ctx.moveTo(cx+sx(10),cy+cbh*0.4); ctx.lineTo(cx+cbw-sx(10),cy+cbh*0.4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx+cbw/2,cy+sy(10)); ctx.lineTo(cx+cbw/2,cy+cbh-sy(10)); ctx.stroke();
+  // warehouse text
+  ctx.textAlign='center';
+  ctx.fillStyle='white'; ctx.font='bold '+sf(22)+'px Arial Black, sans-serif';
+  ctx.fillText('GUJARAT KHEDA', W/2, cy+cbh*0.28);
+  ctx.fillStyle='#4A90E2'; ctx.font='bold '+sf(15)+'px Arial Black, sans-serif';
+  ctx.fillText('WAREHOUSE', W/2, cy+cbh*0.47);
+  ctx.fillStyle='#6AABF7'; ctx.font='italic '+sf(13)+'px Arial, sans-serif';
+  ctx.fillText(period, W/2, cy+cbh*0.63);
+  // capacity bar
+  var bx=cx+sx(30), by=cy+cbh*0.76, bw2=cbw-sx(60), bh2=sy(18);
+  roundRect(bx,by,bw2,bh2,sy(9),'#1E3A5F','#2A5A9F',sx(1));
+  if(hasData){
+    var util = Math.min((k.closing/235000)*100, 100);
+    roundRect(bx,by,bw2*(util/100),bh2,sy(9),'#00D2AA',null);
+  }
+  ctx.fillStyle='#8FBCDB'; ctx.font='bold '+sf(10)+'px Arial, sans-serif';
+  ctx.textAlign='center';
+  var capTxt = hasData
+    ? 'Capacity: '+(k.closing/235000*100).toFixed(2)+'%  ('+fmtN(k.closing)+' / 2,35,000 units)'
+    : 'Capacity: Upload data to calculate';
+  ctx.fillText(capTxt, W/2, by+bh2*0.72);
+
+  // ── LEFT: Prev month closing
+  node(140,373, 220,130, 'PREV MONTH','Closing Stock (IN)', op+' units', '#0A2540','#00D2AA','#00FFC6');
+  arrow(sx(252),sy(373), cx-sx(4),sy(373), '#00D2AA');
+  ctx.fillStyle='#00D2AA'; ctx.font='bold '+sf(12)+'px Arial, sans-serif'; ctx.textAlign='center';
+  ctx.fillText('Opening Balance', sx(420), sy(358));
+
+  // ── RIGHT: Closing
+  node(1460,373, 220,130, 'THIS MONTH','Closing Stock', cl+' units', '#0A2540','#4A90E2','#7DD3FC');
+  arrow(cx+cbw+sx(4),sy(373), sx(1348),sy(373), '#4A90E2');
+  ctx.fillStyle='#4A90E2'; ctx.font='bold '+sf(12)+'px Arial, sans-serif'; ctx.textAlign='center';
+  ctx.fillText('End Balance', sx(1180), sy(358));
+
+  // ── TOP: Inward
+  node(800,115, 220,95, 'INWARD','Stock Received', '+'+inw+' units', '#0A2540','#00D2AA','#00FFC6');
+  arrow(sx(800),sy(163), sx(800),cy-sy(4), '#00D2AA');
+
+  // ── BOTTOM: 7 outflow nodes
+  // Positions: evenly across 115 to 1485 in steps of 228
+  var outflows = [
+    {cx:115,  title:'SALES',    sub:'Direct',       val:sal+' units', gc:'#FF6B6B'},
+    {cx:343,  title:'FBA',      sub:'Amazon',        val:fba+' units', gc:'#CE93D8'},
+    {cx:571,  title:'FBF',      sub:'Flipkart',      val:fbf+' units', gc:'#64B5F6'},
+    {cx:800,  title:'SJIT',     sub:'Just-In-Time',  val:sjt+' units', gc:'#FFB74D'},
+    {cx:1028, title:'GGN+BLR',  sub:'WH Transfers',  val:ggn+' units', gc:'#81D4FA'},
+    {cx:1257, title:'STORE',    sub:'Store Transfer', val:sto+' units', gc:'#66BB6A'},
+    {cx:1485, title:'OTHERS',   sub:'Uncategorised',  val:oth+' units', gc:'#F06292'},
+  ];
+  outflows.forEach(function(o){
+    arrow(sx(o.cx), cy+cbh+sy(4), sx(o.cx), sy(570), o.gc);
+    node(o.cx, 680, 190, 140, o.title, o.sub, o.val, '#0D1B2A', o.gc, o.gc);
+  });
+
+  // ── LEGEND
+  var lgx=sx(60), lgy=sy(775), lbw=sy(10);
+  ctx.font='bold '+sf(11)+'px Arial, sans-serif';
+  var legends = [
+    {label:'Inward/Opening', col:'#00D2AA'},
+    {label:'Sales',          col:'#FF6B6B'},
+    {label:'FBA',            col:'#CE93D8'},
+    {label:'FBF',            col:'#64B5F6'},
+    {label:'SJIT',           col:'#FFB74D'},
+    {label:'GGN+BLR',        col:'#81D4FA'},
+    {label:'Store',          col:'#66BB6A'},
+    {label:'Others',         col:'#F06292'},
+    {label:'Closing',        col:'#4A90E2'},
+  ];
+  legends.forEach(function(lg){
+    ctx.beginPath(); ctx.arc(lgx+lbw/2, lgy, lbw/2, 0, Math.PI*2);
+    ctx.fillStyle=lg.col; ctx.fill();
+    ctx.fillStyle='#C8DDF0'; ctx.textAlign='left';
+    var tw = ctx.measureText(lg.label).width;
+    ctx.fillText(lg.label, lgx+lbw+sx(4), lgy+sy(4));
+    lgx += tw + lbw + sx(20);
+  });
+}
+
+// Re-render diagram whenever window resizes
+window.addEventListener('resize', function(){
+  if(document.getElementById('flow').classList.contains('on')){
+    renderFlowDiagram();
+  }
+});
+
 </script>
 </body>
 </html>
