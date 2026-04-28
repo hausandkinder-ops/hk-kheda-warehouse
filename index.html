@@ -379,7 +379,7 @@ footer em{color:var(--muted);font-style:normal;}
       <button class="btn bb" onclick="document.getElementById('flowc').requestFullscreen&&document.getElementById('flowc').requestFullscreen()">⛶ Full Screen</button>
     </div>
     <div class="flow-svgc" id="flowc">
-<canvas id="flowCanvas" style="width:100%;display:block;background:#0D1B2A;min-height:420px"></canvas>
+<canvas id="flowCanvas" style="width:100%;display:block;background:#0D1B2A;min-height:460px;border-radius:0 0 12px 12px"></canvas>
 </div>
     <div class="flow-cap">
       <span class="fleg"><span class="fdot" style="background:#00D2AA"></span>Inward/Opening</span>
@@ -538,7 +538,13 @@ async function processFile(file){
       var dt=r['Date'];
       if(!(dt instanceof Date)){
         var parts=String(dt).split(/[-\/]/);
-        if(parts.length===3){dt=parts[0].length===4?new Date(+parts[0],+parts[1]-1,+parts[2]):new Date(+parts[2],+parts[1]-1,+parts[0]);}
+        if(parts.length===3){
+          var y,m,d;
+          if(parts[0].length===4){y=+parts[0];m=+parts[1]-1;d=+parts[2];}
+          else{y=+parts[2];m=+parts[1]-1;d=+parts[0];}
+          if(y<100) y+=2000;
+          dt=new Date(y,m,d);
+        }
         else{dt=new Date(dt);}
       }
       return{_row:i+2,date:dt,sku:(r['SKU Name']||'').trim(),qty:qty,act:act};
@@ -778,9 +784,10 @@ function clearStorage(){
 }
 
 window.addEventListener('load', function(){
+  setTimeout(renderFlowDiagram, 200);
   var savedAt = loadFromStorage();
   if(savedAt){
-    renderDashboard(); renderDaily(); renderSKU(); renderAlerts(); renderFlowDiagram();
+    renderDashboard(); renderDaily(); renderSKU(); renderAlerts(); setTimeout(renderFlowDiagram,100);
     document.getElementById('uploadActions').style.display='flex';
     document.getElementById('undoBtn').style.display='inline-flex';
     var b = document.getElementById('dataBanner');
@@ -796,219 +803,255 @@ function renderFlowDiagram(){
   var canvas = document.getElementById('flowCanvas');
   if(!canvas) return;
 
-  var DPR = window.devicePixelRatio || 1;
-  var W   = canvas.offsetWidth  || 1200;
-  var H   = Math.round(W * 0.52);   // maintain aspect ratio
+  var DPR = Math.min(window.devicePixelRatio||1, 2);
+  var W   = canvas.parentElement ? canvas.parentElement.offsetWidth : 1200;
+  if(W < 100) W = 1200;
+  var H   = Math.round(W * 0.56);
   canvas.width  = W * DPR;
   canvas.height = H * DPR;
+  canvas.style.width  = W + 'px';
   canvas.style.height = H + 'px';
 
   var ctx = canvas.getContext('2d');
   ctx.scale(DPR, DPR);
 
-  var k = g_kpis;
-  var hasData = k && k.closing !== undefined;
+  var k      = g_kpis;
+  var noData = !k || k.closing === undefined;
 
-  // ── scale helpers
-  var sx = function(x){ return x / 1600 * W; };
-  var sy = function(y){ return y / 820  * H; };
-  var sf = function(f){ return Math.max(9, f / 1600 * W); };
+  // Coordinate helpers — design space is 1600 x 900
+  function sx(x){ return x / 1600 * W; }
+  function sy(y){ return y / 900  * H; }
+  function sf(f){ return Math.max(8, f / 1600 * W); }
 
   // ── BACKGROUND
   var bg = ctx.createLinearGradient(0,0,W,H);
-  bg.addColorStop(0,'#0D1B2A'); bg.addColorStop(1,'#0A2540');
+  bg.addColorStop(0,'#0D1B2A'); bg.addColorStop(1,'#091828');
   ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
 
-  // dot grid
-  ctx.fillStyle = 'rgba(26,58,95,0.45)';
-  for(var gx=0.6; gx<1600; gx+=40){
-    for(var gy=0.6; gy<820; gy+=40){
-      ctx.beginPath(); ctx.arc(sx(gx),sy(gy),sx(1.2),0,Math.PI*2); ctx.fill();
+  // Dot grid
+  ctx.fillStyle = 'rgba(26,58,95,0.4)';
+  for(var gx=20; gx<1600; gx+=44)
+    for(var gy=20; gy<900; gy+=44){
+      ctx.beginPath(); ctx.arc(sx(gx),sy(gy),0.8,0,Math.PI*2); ctx.fill();
     }
-  }
 
-  // ── TITLE
-  ctx.textAlign = 'center';
-  ctx.fillStyle = 'white';
-  ctx.font = 'bold ' + sf(28) + 'px Arial Black, sans-serif';
-  ctx.fillText('GUJARAT KHEDA WAREHOUSE — INVENTORY FLOW', W/2, sy(50));
-  ctx.fillStyle = '#6AABF7';
-  ctx.font = 'italic ' + sf(14) + 'px Arial, sans-serif';
-  var period = (k && k.period) ? k.period : '— Upload data to populate —';
-  ctx.fillText(period + '   ·   Capacity: 2,35,000 units', W/2, sy(76));
-
-  // ── Helper: rounded rectangle
-  function roundRect(x,y,w,h,r,fill,stroke,lw){
+  // ── ROUNDED RECT helper
+  function rr(x,y,w,h,r,fill,stroke,lw){
+    if(w<=0||h<=0) return;
+    r = Math.min(r, w/2, h/2);
     ctx.beginPath();
     ctx.moveTo(x+r,y);
-    ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.lineTo(x+w-r,y);  ctx.arcTo(x+w,y,    x+w,y+r,   r);
+    ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,  x+w-r,y+h, r);
+    ctx.lineTo(x+r,y+h);  ctx.arcTo(x,  y+h,  x,  y+h-r, r);
+    ctx.lineTo(x,  y+r);  ctx.arcTo(x,  y,    x+r,y,      r);
     ctx.closePath();
-    if(fill){ ctx.fillStyle=fill; ctx.fill(); }
+    if(fill){  ctx.fillStyle=fill;   ctx.fill();   }
     if(stroke){ ctx.strokeStyle=stroke; ctx.lineWidth=lw||2; ctx.stroke(); }
   }
 
-  // ── Helper: arrow
+  // ── ARROW helper
   function arrow(x1,y1,x2,y2,col){
-    var angle = Math.atan2(y2-y1,x2-x1);
-    var len   = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
-    if(len < 4) return;
+    var dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy);
+    if(len<8) return;
+    var ang = Math.atan2(dy,dx);
+    var hs  = sx(14);
+    var ex  = x2 - hs*Math.cos(ang)*0.6;
+    var ey  = y2 - hs*Math.sin(ang)*0.6;
     ctx.save();
     // glow
-    ctx.strokeStyle = col; ctx.lineWidth = sx(5); ctx.globalAlpha=0.18;
-    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    ctx.globalAlpha=0.15; ctx.strokeStyle=col; ctx.lineWidth=sx(7);
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(ex,ey); ctx.stroke();
     ctx.globalAlpha=1;
-    // line
-    ctx.lineWidth = sx(3);
-    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-    // arrowhead
-    var hs = sx(12);
+    ctx.strokeStyle=col; ctx.lineWidth=sx(2.8);
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(ex,ey); ctx.stroke();
     ctx.fillStyle=col;
     ctx.beginPath();
-    ctx.moveTo(x2, y2);
-    ctx.lineTo(x2 - hs*Math.cos(angle-0.4), y2 - hs*Math.sin(angle-0.4));
-    ctx.lineTo(x2 - hs*Math.cos(angle+0.4), y2 - hs*Math.sin(angle+0.4));
+    ctx.moveTo(x2,y2);
+    ctx.lineTo(x2-hs*Math.cos(ang-0.38), y2-hs*Math.sin(ang-0.38));
+    ctx.lineTo(x2-hs*Math.cos(ang+0.38), y2-hs*Math.sin(ang+0.38));
     ctx.closePath(); ctx.fill();
     ctx.restore();
   }
 
-  // ── Helper: draw a node box
-  function node(cx,cy,w,h,title,sub,val,bgCol,glowCol,valCol){
-    var x=sx(cx)-sx(w)/2, y=sy(cy)-sy(h)/2, bw=sx(w), bh=sy(h);
+  // ── NODE box
+  function node(cx,cy,nw,nh,title,sub,val,bgC,glowC,valC){
+    var x=sx(cx)-sx(nw)/2, y=sy(cy)-sy(nh)/2;
+    var bw=sx(nw), bh=sy(nh), rad=sx(12);
     // glow halo
-    ctx.save(); ctx.globalAlpha=0.2;
-    roundRect(x-sx(8),y-sy(8),bw+sx(16),bh+sy(16),sx(16),glowCol,null);
+    ctx.save(); ctx.globalAlpha=0.18;
+    rr(x-sx(6),y-sy(6),bw+sx(12),bh+sy(12),rad+2,glowC,null);
     ctx.restore();
     // box
-    roundRect(x,y,bw,bh,sx(12),'#0A2540',glowCol,sx(2.5));
-    // top stripe
-    roundRect(x+sx(4),y+sy(4),bw-sx(8),sy(22),sx(6),glowCol,null);
+    rr(x,y,bw,bh,rad,bgC,glowC,sx(2.5));
+    // top accent stripe
+    rr(x+sx(4),y+sy(4),bw-sx(8),sy(20),sx(5),glowC,null);
     // texts
     ctx.textAlign='center';
-    ctx.fillStyle='white';
-    ctx.font='bold '+sf(13)+'px Arial Black, sans-serif';
-    ctx.fillText(title, sx(cx), y+sy(h)*0.38);
+    ctx.fillStyle='#FFFFFF';
+    ctx.font='900 '+sf(14)+'px "Arial Black",sans-serif';
+    ctx.fillText(title, sx(cx), y+bh*0.38);
     ctx.fillStyle='#8FBCDB';
-    ctx.font=sf(11)+'px Arial, sans-serif';
-    ctx.fillText(sub, sx(cx), y+sy(h)*0.58);
-    ctx.fillStyle = valCol||'#FFD700';
-    ctx.font='bold '+sf(16)+'px Arial Black, sans-serif';
-    ctx.fillText(val, sx(cx), y+sy(h)*0.82);
+    ctx.font=sf(10)+'px Arial,sans-serif';
+    ctx.fillText(sub, sx(cx), y+bh*0.58);
+    ctx.fillStyle=valC||'#FFD700';
+    ctx.font='900 '+sf(17)+'px "Arial Black",sans-serif';
+    ctx.fillText(val, sx(cx), y+bh*0.82);
   }
 
-  function fmtN(n){ return (typeof n==='number') ? n.toLocaleString('en-IN') : (n||'0'); }
-  var op  = hasData ? fmtN(k.opening)  : '—';
-  var inw = hasData ? fmtN(k.inward)   : '—';
-  var sal = hasData ? fmtN(k.sales)    : '—';
-  var fba = hasData ? fmtN(k.fba)      : '—';
-  var fbf = hasData ? fmtN(k.fbf)      : '—';
-  var sjt = hasData ? fmtN(k.sjit)     : '—';
-  var ggn = hasData ? fmtN(k.ggn+k.blr): '—';
-  var sto = hasData ? fmtN(k.store)    : '—';
-  var oth = hasData ? fmtN(k.others)   : '—';
-  var cl  = hasData ? fmtN(k.closing)  : '—';
+  // ── FORMAT helpers
+  function fmtN(n){ return (typeof n==='number')?n.toLocaleString('en-IN'):'0'; }
+  function fmtPeriod(p){
+    if(!p) return '— Upload data —';
+    // p is like "2026-04" -> display as "Apr 2026"
+    var parts=p.split('-');
+    if(parts.length!==2) return p;
+    var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var mi=parseInt(parts[1],10)-1;
+    return (months[mi]||parts[1])+' '+parts[0];
+  }
 
-  // ── Central warehouse glow rings
+  var op  = noData ? '—' : fmtN(k.opening);
+  var inw = noData ? '—' : fmtN(k.inward);
+  var sal = noData ? '—' : fmtN(k.sales);
+  var fba = noData ? '—' : fmtN(k.fba);
+  var fbf = noData ? '—' : fmtN(k.fbf);
+  var sjt = noData ? '—' : fmtN(k.sjit);
+  var ggn = noData ? '—' : fmtN(k.ggn+k.blr);
+  var sto = noData ? '—' : fmtN(k.store);
+  var oth = noData ? '—' : fmtN(k.others);
+  var cl  = noData ? '—' : fmtN(k.closing);
+  var per = fmtPeriod(noData ? null : k.period);
+
+  // ── TITLE
+  ctx.textAlign='center';
+  ctx.fillStyle='#FFFFFF';
+  ctx.font='900 '+sf(26)+'px "Arial Black",sans-serif';
+  ctx.fillText('GUJARAT KHEDA WAREHOUSE — INVENTORY FLOW', W/2, sy(52));
+  ctx.fillStyle='#6AABF7';
+  ctx.font='italic '+sf(13)+'px Arial,sans-serif';
+  ctx.fillText(per + '   ·   Warehouse Capacity: 2,35,000 units', W/2, sy(80));
+
+  // ── Central warehouse glows
   ctx.save();
-  [4.0,3.0,2.2].forEach(function(r,i){
-    ctx.globalAlpha=[0.05,0.08,0.11][i];
-    ctx.beginPath(); ctx.arc(W/2, sy(7*820/12), sx(r*60),0,Math.PI*2);
+  [{r:260,a:0.04},{r:200,a:0.07},{r:145,a:0.10}].forEach(function(g){
+    ctx.globalAlpha=g.a;
+    ctx.beginPath(); ctx.arc(W/2, sy(385), sx(g.r),0,Math.PI*2);
     ctx.fillStyle='#4A90E2'; ctx.fill();
   });
   ctx.restore();
 
-  // ── Central warehouse box
-  var CX=800, CY=370, BW=380, BH=200;
-  var cx=sx(CX)-sx(BW)/2, cy=sy(CY)-sy(BH)/2, cbw=sx(BW), cbh=sy(BH);
+  // ── CENTRAL WAREHOUSE BOX  cx=800 cy=385 w=440 h=230
+  var CX=800,CY=385,BW=440,BH=230;
+  var cbx=sx(CX)-sx(BW)/2, cby=sy(CY)-sy(BH)/2;
+  var cbw=sx(BW), cbh=sy(BH), crad=sx(16);
   // outer glow
-  ctx.save(); ctx.globalAlpha=0.12;
-  roundRect(cx-sx(20),cy-sy(20),cbw+sx(40),cbh+sy(40),sx(20),'#1E6FD9',null);
+  ctx.save(); ctx.globalAlpha=0.10;
+  rr(cbx-sx(18),cby-sy(18),cbw+sx(36),cbh+sy(36),crad+4,'#1E6FD9',null);
   ctx.restore();
-  // box fill gradient
-  var wg = ctx.createLinearGradient(cx,cy,cx+cbw,cy+cbh);
+  // gradient fill
+  var wg=ctx.createLinearGradient(cbx,cby,cbx+cbw,cby+cbh);
   wg.addColorStop(0,'#0F3460'); wg.addColorStop(1,'#1A4A80');
-  roundRect(cx,cy,cbw,cbh,sx(16),wg,'#4A90E2',sx(3));
-  // inner grid lines
-  ctx.strokeStyle='rgba(30,111,217,0.35)'; ctx.lineWidth=sx(0.8);
-  ctx.beginPath(); ctx.moveTo(cx+sx(10),cy+cbh*0.4); ctx.lineTo(cx+cbw-sx(10),cy+cbh*0.4); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx+cbw/2,cy+sy(10)); ctx.lineTo(cx+cbw/2,cy+cbh-sy(10)); ctx.stroke();
-  // warehouse text
+  rr(cbx,cby,cbw,cbh,crad,wg,'#4A90E2',sx(3));
+  // inner dividers
+  ctx.strokeStyle='rgba(30,111,217,0.3)'; ctx.lineWidth=0.8;
+  ctx.beginPath(); ctx.moveTo(cbx+sx(12),cby+cbh*0.44);
+  ctx.lineTo(cbx+cbw-sx(12),cby+cbh*0.44); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cbx+cbw/2,cby+sy(12));
+  ctx.lineTo(cbx+cbw/2,cby+cbh-sy(12)); ctx.stroke();
+  // text
   ctx.textAlign='center';
-  ctx.fillStyle='white'; ctx.font='bold '+sf(22)+'px Arial Black, sans-serif';
-  ctx.fillText('GUJARAT KHEDA', W/2, cy+cbh*0.28);
-  ctx.fillStyle='#4A90E2'; ctx.font='bold '+sf(15)+'px Arial Black, sans-serif';
-  ctx.fillText('WAREHOUSE', W/2, cy+cbh*0.47);
-  ctx.fillStyle='#6AABF7'; ctx.font='italic '+sf(13)+'px Arial, sans-serif';
-  ctx.fillText(period, W/2, cy+cbh*0.63);
+  ctx.fillStyle='#FFFFFF';
+  ctx.font='900 '+sf(24)+'px "Arial Black",sans-serif';
+  ctx.fillText('GUJARAT KHEDA', W/2, cby+cbh*0.25);
+  ctx.fillStyle='#4A90E2';
+  ctx.font='900 '+sf(16)+'px "Arial Black",sans-serif';
+  ctx.fillText('WAREHOUSE', W/2, cby+cbh*0.44);
+  ctx.fillStyle='#6AABF7';
+  ctx.font='italic '+sf(13)+'px Arial,sans-serif';
+  ctx.fillText(per, W/2, cby+cbh*0.60);
   // capacity bar
-  var bx=cx+sx(30), by=cy+cbh*0.76, bw2=cbw-sx(60), bh2=sy(18);
-  roundRect(bx,by,bw2,bh2,sy(9),'#1E3A5F','#2A5A9F',sx(1));
-  if(hasData){
-    var util = Math.min((k.closing/235000)*100, 100);
-    roundRect(bx,by,bw2*(util/100),bh2,sy(9),'#00D2AA',null);
+  var bx=cbx+sx(30), by=cby+cbh*0.72, barW=cbw-sx(60), barH=sy(20);
+  rr(bx,by,barW,barH,barH/2,'#1E3A5F','#2A5A9F',1);
+  if(!noData){
+    var util=Math.min((k.closing/235000)*100,100);
+    var fillW=barW*(util/100);
+    if(fillW>barH) rr(bx,by,fillW,barH,barH/2,'#00D2AA',null);
+    ctx.fillStyle='#8FBCDB';
+    ctx.font='bold '+sf(9.5)+'px Arial,sans-serif';
+    ctx.fillText(
+      'Capacity: '+util.toFixed(2)+'%  ('+fmtN(k.closing)+' / 2,35,000 units)',
+      W/2, by+barH*0.74
+    );
+  } else {
+    ctx.fillStyle='#8FBCDB'; ctx.font='bold '+sf(9.5)+'px Arial,sans-serif';
+    ctx.fillText('Upload data to see capacity', W/2, by+barH*0.74);
   }
-  ctx.fillStyle='#8FBCDB'; ctx.font='bold '+sf(10)+'px Arial, sans-serif';
+
+  // ── LEFT: Previous month closing  (NO downward arrow from this node)
+  node(145, 385, 235, 140, 'PREV MONTH','Closing Stock (IN)', op+' units','#0A2540','#00D2AA','#00FFC6');
+  arrow(sx(263), sy(385), cbx-sx(4), sy(385), '#00D2AA');
+  ctx.fillStyle='#00D2AA'; ctx.font='bold '+sf(12)+'px Arial,sans-serif';
   ctx.textAlign='center';
-  var capTxt = hasData
-    ? 'Capacity: '+(k.closing/235000*100).toFixed(2)+'%  ('+fmtN(k.closing)+' / 2,35,000 units)'
-    : 'Capacity: Upload data to calculate';
-  ctx.fillText(capTxt, W/2, by+bh2*0.72);
+  ctx.fillText('Opening Balance', sx(440), sy(368));
 
-  // ── LEFT: Prev month closing
-  node(140,373, 220,130, 'PREV MONTH','Closing Stock (IN)', op+' units', '#0A2540','#00D2AA','#00FFC6');
-  arrow(sx(252),sy(373), cx-sx(4),sy(373), '#00D2AA');
-  ctx.fillStyle='#00D2AA'; ctx.font='bold '+sf(12)+'px Arial, sans-serif'; ctx.textAlign='center';
-  ctx.fillText('Opening Balance', sx(420), sy(358));
+  // ── RIGHT: This month closing  (NO downward arrow from this node)
+  node(1455, 385, 235, 140, 'THIS MONTH','Closing Stock', cl+' units','#0A2540','#4A90E2','#7DD3FC');
+  arrow(cbx+cbw+sx(4), sy(385), sx(1337), sy(385), '#4A90E2');
+  ctx.fillStyle='#4A90E2'; ctx.font='bold '+sf(12)+'px Arial,sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('End Balance', sx(1160), sy(368));
 
-  // ── RIGHT: Closing
-  node(1460,373, 220,130, 'THIS MONTH','Closing Stock', cl+' units', '#0A2540','#4A90E2','#7DD3FC');
-  arrow(cx+cbw+sx(4),sy(373), sx(1348),sy(373), '#4A90E2');
-  ctx.fillStyle='#4A90E2'; ctx.font='bold '+sf(12)+'px Arial, sans-serif'; ctx.textAlign='center';
-  ctx.fillText('End Balance', sx(1180), sy(358));
+  // ── TOP: Inward  (arrow goes DOWN into warehouse)
+  node(800, 120, 230, 105, 'INWARD','Stock Received', '+'+inw+' units','#0A2540','#00D2AA','#00FFC6');
+  arrow(sx(800), sy(173), sx(800), cby-sx(4), '#00D2AA');
+  ctx.fillStyle='#00D2AA'; ctx.font='bold '+sf(11)+'px Arial,sans-serif';
+  ctx.textAlign='left';
+  ctx.fillText('+ IN', sx(816), sy(242));
 
-  // ── TOP: Inward
-  node(800,115, 220,95, 'INWARD','Stock Received', '+'+inw+' units', '#0A2540','#00D2AA','#00FFC6');
-  arrow(sx(800),sy(163), sx(800),cy-sy(4), '#00D2AA');
-
-  // ── BOTTOM: 7 outflow nodes
-  // Positions: evenly across 115 to 1485 in steps of 228
+  // ── BOTTOM: 7 outflow nodes — only arrows from WAREHOUSE bottom
   var outflows = [
-    {cx:115,  title:'SALES',    sub:'Direct',       val:sal+' units', gc:'#FF6B6B'},
-    {cx:343,  title:'FBA',      sub:'Amazon',        val:fba+' units', gc:'#CE93D8'},
-    {cx:571,  title:'FBF',      sub:'Flipkart',      val:fbf+' units', gc:'#64B5F6'},
-    {cx:800,  title:'SJIT',     sub:'Just-In-Time',  val:sjt+' units', gc:'#FFB74D'},
-    {cx:1028, title:'GGN+BLR',  sub:'WH Transfers',  val:ggn+' units', gc:'#81D4FA'},
-    {cx:1257, title:'STORE',    sub:'Store Transfer', val:sto+' units', gc:'#66BB6A'},
-    {cx:1485, title:'OTHERS',   sub:'Uncategorised',  val:oth+' units', gc:'#F06292'},
+    {cx:115,  title:'SALES',   sub:'Direct Orders',   val:sal,gc:'#FF6B6B'},
+    {cx:343,  title:'FBA',     sub:'Amazon',           val:fba,gc:'#CE93D8'},
+    {cx:571,  title:'FBF',     sub:'Flipkart',         val:fbf,gc:'#64B5F6'},
+    {cx:800,  title:'SJIT',    sub:'Just-In-Time',     val:sjt,gc:'#FFB74D'},
+    {cx:1029, title:'GGN+BLR', sub:'WH Transfers',     val:ggn,gc:'#81D4FA'},
+    {cx:1257, title:'STORE',   sub:'Store Transfer',   val:sto,gc:'#66BB6A'},
+    {cx:1485, title:'OTHERS',  sub:'Uncategorised',    val:oth,gc:'#F06292'},
   ];
+
+  var warehouseBottomY = cby + cbh;
+
   outflows.forEach(function(o){
-    arrow(sx(o.cx), cy+cbh+sy(4), sx(o.cx), sy(570), o.gc);
-    node(o.cx, 680, 190, 140, o.title, o.sub, o.val, '#0D1B2A', o.gc, o.gc);
+    var nCX = sx(o.cx);
+    var arrowFromY = warehouseBottomY + sx(4);
+    var nodeTopY   = sy(620);
+    // Arrow only from warehouse bottom — not from side nodes
+    arrow(nCX, arrowFromY, nCX, nodeTopY - sx(4), o.gc);
+    // val label next to arrow midpoint
+    ctx.fillStyle=o.gc;
+    ctx.font='bold '+sf(9)+'px Arial,sans-serif';
+    ctx.textAlign='left';
+    ctx.fillText('−', nCX+sx(4), (arrowFromY+nodeTopY)/2);
+    // node
+    node(o.cx, 718, 200, 155, o.title, o.sub, (o.val==='—'?'—':o.val+' units'),'#0D1B2A',o.gc,o.gc);
   });
 
-  // ── LEGEND
-  var lgx=sx(60), lgy=sy(775), lbw=sy(10);
-  ctx.font='bold '+sf(11)+'px Arial, sans-serif';
-  var legends = [
-    {label:'Inward/Opening', col:'#00D2AA'},
-    {label:'Sales',          col:'#FF6B6B'},
-    {label:'FBA',            col:'#CE93D8'},
-    {label:'FBF',            col:'#64B5F6'},
-    {label:'SJIT',           col:'#FFB74D'},
-    {label:'GGN+BLR',        col:'#81D4FA'},
-    {label:'Store',          col:'#66BB6A'},
-    {label:'Others',         col:'#F06292'},
-    {label:'Closing',        col:'#4A90E2'},
+  // ── LEGEND strip at bottom
+  var lgItems=[
+    {l:'Inward/Opening',c:'#00D2AA'},{l:'Sales',c:'#FF6B6B'},{l:'FBA',c:'#CE93D8'},
+    {l:'FBF',c:'#64B5F6'},{l:'SJIT',c:'#FFB74D'},{l:'GGN+BLR',c:'#81D4FA'},
+    {l:'Store',c:'#66BB6A'},{l:'Others',c:'#F06292'},{l:'Closing',c:'#4A90E2'},
   ];
-  legends.forEach(function(lg){
-    ctx.beginPath(); ctx.arc(lgx+lbw/2, lgy, lbw/2, 0, Math.PI*2);
-    ctx.fillStyle=lg.col; ctx.fill();
+  var lgY=H-sy(12), lgX=sx(50);
+  ctx.font='bold '+sf(10)+'px Arial,sans-serif';
+  lgItems.forEach(function(g){
+    var r=sy(6);
+    ctx.beginPath(); ctx.arc(lgX+r,lgY,r,0,Math.PI*2);
+    ctx.fillStyle=g.c; ctx.fill();
     ctx.fillStyle='#C8DDF0'; ctx.textAlign='left';
-    var tw = ctx.measureText(lg.label).width;
-    ctx.fillText(lg.label, lgx+lbw+sx(4), lgy+sy(4));
-    lgx += tw + lbw + sx(20);
+    ctx.fillText(g.l, lgX+r*2+sx(4), lgY+sy(4));
+    lgX += ctx.measureText(g.l).width + r*2 + sx(22);
   });
 }
 
