@@ -527,39 +527,46 @@ function formatPeriod(p){
   return (MN[parseInt(pts[1],10)-1]||pts[1])+' '+pts[0];
 }
 function parseDate(raw){
-  // Never accept a JS Date object directly — Excel may have misread the format
-  // Always work from the string representation
+  // CASE 1: SheetJS gave us a real JS Date object (cellDates:true)
+  // Trust the Date object's actual values — do NOT stringify first
+  // because Excel's cell number format (mm-dd-yy) would produce wrong strings
+  if(raw instanceof Date && !isNaN(raw)){
+    // Extract year/month/day directly — never go through string conversion
+    var y=raw.getFullYear(), m=raw.getMonth(), d=raw.getDate();
+    if(y < 100) y += 2000;
+    return new Date(y, m, d);
+  }
+
+  // CASE 2: SheetJS gave us a string
   var s = String(raw).trim();
 
   // Handle Excel serial number (pure integer like "46143")
   if(/^\d{4,6}$/.test(s)){
     var serial = parseInt(s, 10);
-    // Excel epoch: Dec 30 1899 (accounts for Excel's 1900 leap year bug)
-    var d = new Date(Date.UTC(1899,11,30) + serial*86400000);
-    return d;
+    return new Date(Date.UTC(1899,11,30) + serial*86400000);
   }
 
-  // Handle string dates — split on - or /
+  // Handle ISO string from SheetJS with dateNF:'yyyy-mm-dd' e.g. "2026-05-01"
   var parts = s.split(/[-\/]/);
   if(parts.length === 3){
     var p0=+parts[0], p1=+parts[1], p2=+parts[2];
-    var y, m, d;
+    var yr, mo, dy;
 
     if(parts[0].length === 4 && p0 > 1900){
-      // YYYY-MM-DD  e.g. 2026-05-01
-      y=p0; m=p1-1; d=p2;
+      // YYYY-MM-DD (what SheetJS produces with dateNF:'yyyy-mm-dd')
+      yr=p0; mo=p1-1; dy=p2;
+    } else if(p2 > 31) {
+      // DD-MM-YYYY Indian format (user typed as text)
+      dy=p0; mo=p1-1; yr=p2;
     } else {
-      // DD-MM-YYYY or DD/MM/YYYY — ALWAYS treat as Indian format
-      // p0 = day, p1 = month, p2 = year
-      d=p0; m=p1-1; y=p2;
+      // Default: treat as DD-MM-YYYY
+      dy=p0; mo=p1-1; yr=p2;
     }
 
-    if(y < 100) y += 2000;
-    var result = new Date(y, m, d);
-    return result;
+    if(yr < 100) yr += 2000;
+    return new Date(yr, mo, dy);
   }
 
-  // Fallback: try native parsing (handles "01 May 2026" etc)
   return new Date(s);
 }
 
@@ -721,9 +728,9 @@ async function processFile(file){
 
   try{
     var data   = await file.arrayBuffer();
-    var wb_raw = XLSX.read(data,{type:'array',cellDates:false,raw:false});
+    var wb_raw = XLSX.read(data,{type:'array',cellDates:true});
     var ws     = wb_raw.Sheets[wb_raw.SheetNames[0]];
-    var rows   = XLSX.utils.sheet_to_json(ws,{raw:false,defval:''});
+    var rows   = XLSX.utils.sheet_to_json(ws,{raw:false,dateNF:'yyyy-mm-dd',defval:''});
 
     if(!rows.length){toast('File is empty.');setStep(1,'error','Empty');return;}
     setStep(1,'done','Read '+rows.length+' rows');
