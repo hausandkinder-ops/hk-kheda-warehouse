@@ -527,47 +527,33 @@ function formatPeriod(p){
   return (MN[parseInt(pts[1],10)-1]||pts[1])+' '+pts[0];
 }
 function parseDate(raw){
-  // CASE 1: SheetJS gave us a real JS Date object (cellDates:true)
-  // Trust the Date object's actual values — do NOT stringify first
-  // because Excel's cell number format (mm-dd-yy) would produce wrong strings
   if(raw instanceof Date && !isNaN(raw)){
-    // Extract year/month/day directly — never go through string conversion
-    var y=raw.getFullYear(), m=raw.getMonth(), d=raw.getDate();
-    if(y < 100) y += 2000;
-    return new Date(y, m, d);
+    var y=raw.getFullYear(),m=raw.getMonth(),d=raw.getDate();
+    if(y<100) y+=2000;
+    return new Date(y,m,d);
   }
-
-  // CASE 2: SheetJS gave us a string
-  var s = String(raw).trim();
-
-  // Handle Excel serial number (pure integer like "46143")
-  if(/^\d{4,6}$/.test(s)){
-    var serial = parseInt(s, 10);
-    return new Date(Date.UTC(1899,11,30) + serial*86400000);
+  var s=String(raw).trim();
+  if(/^[0-9]{4,6}$/.test(s)){
+    var utcMs=Date.UTC(1899,11,30)+parseInt(s,10)*86400000;
+    var tmp=new Date(utcMs);
+    return new Date(tmp.getUTCFullYear(),tmp.getUTCMonth(),tmp.getUTCDate());
   }
-
-  // Handle ISO string from SheetJS with dateNF:'yyyy-mm-dd' e.g. "2026-05-01"
-  var parts = s.split(/[-\/]/);
-  if(parts.length === 3){
-    var p0=+parts[0], p1=+parts[1], p2=+parts[2];
-    var yr, mo, dy;
-
-    if(parts[0].length === 4 && p0 > 1900){
-      // YYYY-MM-DD (what SheetJS produces with dateNF:'yyyy-mm-dd')
-      yr=p0; mo=p1-1; dy=p2;
-    } else if(p2 > 31) {
-      // DD-MM-YYYY Indian format (user typed as text)
-      dy=p0; mo=p1-1; yr=p2;
-    } else {
-      // Default: treat as DD-MM-YYYY
-      dy=p0; mo=p1-1; yr=p2;
-    }
-
-    if(yr < 100) yr += 2000;
-    return new Date(yr, mo, dy);
+  var parts=s.split(/[-\/]/);
+  if(parts.length===3){
+    var p0=+parts[0],p1=+parts[1],p2=+parts[2],yr,mo,dy;
+    if(parts[0].length===4&&p0>1900){yr=p0;mo=p1-1;dy=p2;}
+    else{dy=p0;mo=p1-1;yr=p2;}
+    if(yr<100) yr+=2000;
+    return new Date(yr,mo,dy);
   }
-
   return new Date(s);
+}
+
+function localDK(dt){
+  var y=dt.getFullYear();
+  var m=String(dt.getMonth()+1).padStart(2,'0');
+  var d=String(dt.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+d;
 }
 
 // ── TOAST
@@ -656,10 +642,10 @@ function computeMonth(rawRows){
   rows2.forEach(function(r){if(skus.indexOf(r.sku)<0)skus.push(r.sku);});
   skus.sort();
   var dateSet=[];
-  rows2.forEach(function(r){var dk=r.date.toISOString().slice(0,10);if(dateSet.indexOf(dk)<0)dateSet.push(dk);});
+  rows2.forEach(function(r){var dk=localDK(r.date);if(dateSet.indexOf(dk)<0)dateSet.push(dk);});
   dateSet.sort();
   var lkp={};
-  rows2.forEach(function(r){lkp[r.date.toISOString().slice(0,10)+'|||'+r.sku]=r;});
+  rows2.forEach(function(r){lkp[localDK(r.date)+'|||'+r.sku]=r;});
 
   var carry={};
   skus.forEach(function(sku){
@@ -765,7 +751,7 @@ async function processFile(file){
         }else{warnings.push('Row '+(i+2)+': date year '+yr+' looks wrong');return;}
       }
       if(!VALID_ACTS.includes(act)){warnings.push('Row '+(i+2)+': unknown activity "'+act+'"');return;}
-      var dk=dt.toISOString().slice(0,10);
+      var dk=localDK(dt);
       var period=dk.slice(0,7); // 'YYYY-MM'
       parsed.push({dk:dk, period:period, sku:(r['SKU Name']||'').trim(), act:act, qty:qty});
     });
@@ -889,7 +875,7 @@ function dlTemplate(){
   var hdr=['Sr.No.','Date','SKU Name','Quantity','Activity'];
   var acts=VALID_ACTS;
   var sample_rows=[
-    [1,'01-05-2026','SKU001',100,'Closing Stock Previous Month'],
+    [1,'01-05-2026','SKU001',100,'Closing Stock Previous Month'] /* DD-MM-YYYY */,
     [2,'01-05-2026','SKU002',200,'Closing Stock Previous Month'],
     [3,'01-05-2026','SKU001',50,'Inward'],
     [4,'02-05-2026','SKU001',30,'Sales'],
@@ -897,6 +883,7 @@ function dlTemplate(){
     [6,'04-05-2026','SKU001',10,'Stock Transfer to GGN'],
     [7,'04-05-2026','SKU002',5,'Others'],
     ['','','','',''],
+    ['','Date format: DD-MM-YYYY (e.g. 01-05-2026 = 1st May 2026)','','',''],
     ['','--- VALID ACTIVITY VALUES (copy exact spelling) ---','','','']
   ];
   acts.forEach(function(a){sample_rows.push(['',a,'','','']);});
@@ -1114,7 +1101,7 @@ function dlT(tid,name){
     r.querySelectorAll('th,td').forEach(function(c){cells.push('"'+c.innerText.replace(/"/g,'""')+'"');});
     lines.push(cells.join(','));
   });
-  dlRaw(lines.join('\r\n'),name+'_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
+  dlRaw(lines.join('\r\n'),name+'_'+localDK(new Date())+'.csv','text/csv');
 }
 function dlAlerts(){
   var lines=['"SKU","Units","DRR","Days Remaining","Status"'];
@@ -1125,7 +1112,7 @@ function dlAlerts(){
     var st=drr===0?'Dead Stock':+d<=3?'Critical':+d<=7?'Warning':+d<=14?'Watch':'Healthy';
     lines.push('"'+r.sku+'","'+r.cl+'","'+drr.toFixed(1)+'","'+d+'","'+st+'"');
   });
-  dlRaw(lines.join('\r\n'),'stockout_alerts_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
+  dlRaw(lines.join('\r\n'),'stockout_alerts_'+localDK(new Date())+'.csv','text/csv');
 }
 function dlDailyCSV(){
   var lines=['"Date","SKU","Opening","Inward","Sales","FBA","FBF","SJIT","GGN","BLR","Store","Others","Closing"'];
@@ -1133,7 +1120,7 @@ function dlDailyCSV(){
     lines.push([fmtDate(r.date),r.sku,r.op,r.inw,r.sal,r.fba,r.fbf,r.sjt,r.ggn,r.blr,r.sto,r.oth,r.cl]
       .map(function(v){return'"'+v+'"';}).join(','));
   });
-  dlRaw(lines.join('\r\n'),'daily_'+g_kpis.period+'_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
+  dlRaw(lines.join('\r\n'),'daily_'+g_kpis.period+'_'+localDK(new Date())+'.csv','text/csv');
 }
 function dlProcessedExcel(){
   if(!g_daily.length){toast('No data to export.');return;}
