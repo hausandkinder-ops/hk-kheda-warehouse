@@ -282,7 +282,7 @@ footer em{color:var(--muted);font-style:normal;}
   <div class="hc">
     <div class="eyebrow"><div class="pdot"></div><span class="ltag">Live Tracking · Daily Updated</span></div>
     <h1>Gujarat Kheda<br/><em>Warehouse</em> Command Center</h1>
-    <p class="hsub">Inventory Management System · Haus &amp; Kinder Ops · May 2026</p>
+    <p class="hsub">Inventory Management System · Haus &amp; Kinder Ops · <span id="heroYear">Gujarat Kheda</span></p>
     <div class="pills">
       <span class="pill pb">📦 2,35,000 unit capacity</span>
       <span class="pill pc" id="utilPill">⚡ Upload data to begin</span>
@@ -343,7 +343,7 @@ footer em{color:var(--muted);font-style:normal;}
 <section id="dashboard" class="sec on">
   <div class="data-banner db-empty" id="dataBanner">📭 No data loaded yet. <a onclick="document.getElementById('fileInput').click()" style="cursor:pointer;color:var(--sky)">Upload your stock sheet above</a> to populate the dashboard.</div>
   <div class="kpis">
-    <div class="kpi" style="--kac:#00D2AA"><div class="ki">🔓</div><div class="kl">Opening Stock</div><div class="kv" id="kOpening">—</div><div class="ks">Apr closing</div></div>
+    <div class="kpi" style="--kac:#00D2AA"><div class="ki">🔓</div><div class="kl">Opening Stock</div><div class="kv" id="kOpening">—</div><div class="ks" id="kOpeningSub">Prev month closing</div></div>
     <div class="kpi" style="--kac:#2ED573"><div class="ki">📥</div><div class="kl">Total Inward</div><div class="kv" id="kInward">—</div><div class="ks">Units received</div></div>
     <div class="kpi" style="--kac:#FF6B6B"><div class="ki">🛒</div><div class="kl">Total Sales</div><div class="kv" id="kSales">—</div><div class="ks">Units sold</div></div>
     <div class="kpi" style="--kac:#CE93D8"><div class="ki">📦</div><div class="kl">FBA / FBF / SJIT</div><div class="kv" id="kFBA">—</div><div class="ks">Fulfilment</div></div>
@@ -983,6 +983,8 @@ function applyEmptyState(){
   var ua=document.getElementById('uploadActions');if(ua)ua.style.display='none';
   var ub=document.getElementById('undoBtn');if(ub)ub.style.display='none';
   var fi2=document.getElementById('fileInput');if(fi2)fi2.value='';
+  var hy=document.getElementById('heroYear');if(hy)hy.textContent='Gujarat Kheda';
+  var kos=document.getElementById('kOpeningSub');if(kos)kos.textContent='Prev month closing';
 }
 
 // ── RENDER FUNCTIONS
@@ -990,6 +992,17 @@ function renderDashboard(){
   var k=g_kpis;
   if(!k||k.closing===undefined) return;
   document.getElementById('kOpening').textContent=fmt(k.opening);
+  var kos=document.getElementById('kOpeningSub');
+  if(kos){
+    // Prev month = one month before current period
+    var pts=k.period?k.period.split('-'):[];
+    var MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    if(pts.length===2){
+      var mo=parseInt(pts[1],10)-2; var yr=parseInt(pts[0],10);
+      if(mo<0){mo=11;yr--;}
+      kos.textContent=(MN[mo]||'')+' '+yr+' closing';
+    }
+  }
   document.getElementById('kInward').textContent=fmt(k.inward);
   document.getElementById('kSales').textContent=fmt(k.sales);
   document.getElementById('kFBA').textContent=fmt(k.fba+k.fbf+k.sjit);
@@ -1006,6 +1019,8 @@ function renderDashboard(){
   document.getElementById('csPeriod').textContent=formatPeriod(k.period);
   document.getElementById('utilPill').textContent='\u26A1 '+k.util+'% utilized';
   document.getElementById('periodPill').textContent='\uD83D\uDDD3 '+formatPeriod(k.period)+' \u00B7 '+g_sku.length+' SKUs';
+  var hy=document.getElementById('heroYear');
+  if(hy) hy.textContent=formatPeriod(k.period)+' \u00B7 Gujarat Kheda';
   var fp=document.getElementById('flowPeriod');if(fp)fp.textContent=formatPeriod(k.period);
   var vb=document.getElementById('valBanner');
   if(g_errors.length){
@@ -1306,6 +1321,22 @@ window.addEventListener('resize',function(){
 
 // ── ON PAGE LOAD
 window.addEventListener('load',function(){
+  // Clear old storage versions that have wrong date data
+  ['kheda_warehouse_state','kheda_warehouse_state_v1','kheda_warehouse_v3'].forEach(function(k){
+    try{localStorage.removeItem(k);}catch(e){}
+  });
+  // Also clear v4 if it has data with wrong periods (year < 2020 or > 2035)
+  try{
+    var raw=localStorage.getItem('kheda_v4');
+    if(raw){
+      var p=JSON.parse(raw);
+      var bad=false;
+      if(p.months) p.months.forEach(function(m){
+        if(m.period){var yr=parseInt(m.period.split('-')[0]);if(yr<2020||yr>2035)bad=true;}
+      });
+      if(bad){localStorage.removeItem('kheda_v4');console.log('Cleared stale date data from storage');}
+    }
+  }catch(e){}
   setTimeout(renderFlowDiagram,200);
   var savedAt=loadFromStorage();
   if(savedAt&&g_months.length>0){
