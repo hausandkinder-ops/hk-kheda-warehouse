@@ -265,6 +265,13 @@ footer em{color:var(--muted);font-style:normal;}
   .hero,.main,.tabs{padding-left:20px;padding-right:20px;}
   .kpis{grid-template-columns:repeat(2,1fr);}
 }
+
+/* ── Month tab buttons */
+.mtab{padding:6px 16px;border-radius:20px;font-size:12.5px;font-weight:500;
+  border:1px solid var(--border);background:var(--surface2);color:var(--muted);
+  cursor:pointer;font-family:var(--font);transition:all .2s;white-space:nowrap;}
+.mtab:hover{border-color:var(--border2);color:var(--text2);}
+.mtab-active{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600;}
 </style>
 </head>
 <body>
@@ -319,6 +326,16 @@ footer em{color:var(--muted);font-style:normal;}
   <button class="tab" onclick="show('sku',this)">🏷️ SKU Summary</button>
   <button class="tab" onclick="show('flow',this)">🔄 Flow Diagram</button>
 </nav>
+
+<!-- Month tabs bar -->
+<div id="monthTabsBar" style="background:#fff;border-bottom:1px solid var(--border);
+  padding:0 48px;box-shadow:0 1px 3px rgba(0,0,0,.04);">
+  <div style="display:flex;align-items:center;gap:12px;min-height:44px;flex-wrap:wrap;">
+    <span id="monthTabCount" style="font-size:11px;font-weight:600;color:var(--muted);
+      text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;padding:8px 0;"></span>
+    <div id="monthTabsContainer" style="display:none;gap:6px;flex-wrap:wrap;padding:6px 0;"></div>
+  </div>
+</div>
 
 <main class="main">
 
@@ -438,6 +455,17 @@ footer em{color:var(--muted);font-style:normal;}
 
 <div class="toast" id="toast"></div>
 
+
+    <h3 id="ucmTitle">New file detected</h3>
+    <p id="ucmDesc" style="margin-bottom:20px"></p>
+    <div class="modal-btns" style="flex-direction:column;gap:10px">
+      <button id="ucmBtn1" class="btn bg" style="width:100%;justify-content:center;padding:12px 20px;font-size:13px"></button>
+      <button id="ucmBtn2" class="btn br" style="width:100%;justify-content:center;padding:12px 20px;font-size:13px"></button>
+      <button onclick="closeUploadChoiceModal()" class="btn" style="width:100%;justify-content:center;padding:10px;font-size:12px;background:var(--surface2);color:var(--muted);border-color:var(--border)">Cancel — keep current data</button>
+    </div>
+  </div>
+</div>
+
 <!-- UNDO CONFIRM MODAL -->
 <div class="modal-overlay" id="undoModal">
   <div class="modal-box" style="max-width:520px">
@@ -453,200 +481,507 @@ footer em{color:var(--muted);font-style:normal;}
 </div>
 
 <script>
-const CAPACITY = 235000;
-const VALID_ACTS = ['Closing Stock Previous Month','Inward','Sales','FBA','FBF','SJIT','Stock Transfer to GGN','Stock Transfer to BLR','Stock Transfer to Store','Others','Opening Stock Next Month'];
-const ACT_MAP = {'Closing Stock Previous Month':'prev_closing','Inward':'Inward','Sales':'Sales','FBA':'FBA','FBF':'FBF','SJIT':'SJIT','Stock Transfer to GGN':'Transfer_GGN','Stock Transfer to BLR':'Transfer_BLR','Stock Transfer to Store':'Transfer_Store','Others':'Others','Opening Stock Next Month':'next_opening'};
+// ═══════════════════════════════════════════════════════════════
+//  GUJARAT KHEDA WAREHOUSE — INVENTORY DASHBOARD
+//  Multi-month, daily-accumulation, 12-month financial year
+// ═══════════════════════════════════════════════════════════════
 
-var g_daily=[], g_sku=[], g_kpis={}, g_errors=[];
-var MAX_HISTORY=5, g_history=[], g_lastFileName='';
+const CAPACITY   = 235000;
+const MAX_MONTHS = 12;
+const STORAGE_KEY = 'kheda_v4';
 
-function show(id,btn){document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('on');});document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('on');});document.getElementById(id).classList.add('on');if(btn)btn.classList.add('on');if(id==='flow')renderFlowDiagram();}
+const VALID_ACTS = [
+  'Closing Stock Previous Month','Inward','Sales','FBA','FBF','SJIT',
+  'Stock Transfer to GGN','Stock Transfer to BLR','Stock Transfer to Store',
+  'Others','Opening Stock Next Month'
+];
+const ACT_MAP = {
+  'Closing Stock Previous Month':'prev_closing',
+  'Inward':'Inward','Sales':'Sales','FBA':'FBA','FBF':'FBF','SJIT':'SJIT',
+  'Stock Transfer to GGN':'Transfer_GGN','Stock Transfer to BLR':'Transfer_BLR',
+  'Stock Transfer to Store':'Transfer_Store','Others':'Others',
+  'Opening Stock Next Month':'next_opening'
+};
 
-function ft(tid,q){document.querySelectorAll('#'+tid+' tbody tr').forEach(function(r){r.style.display=r.textContent.toLowerCase().indexOf(q.toLowerCase())>=0?'':'none';});}
+// ── STATE
+// g_months: [{period, label, rawRows:[{dk,sku,act,qty}], daily, sku, kpis, errors}]
+// sorted newest first. period = 'YYYY-MM'
+var g_months    = [];
+var g_activeIdx = 0;
 
-function toast(msg,isErr){if(isErr===undefined)isErr=true;var t=document.getElementById('toast');t.textContent=msg;t.style.borderColor=isErr?'var(--danger)':'var(--ok)';t.style.color=isErr?'var(--danger)':'var(--ok)';t.classList.add('show');setTimeout(function(){t.classList.remove('show');},4000);}
+// Aliases used by render functions
+var g_daily=[], g_sku=[], g_kpis={}, g_errors=[], g_lastFileName='';
+var g_history=[], MAX_HISTORY=5;
 
-function setStep(n,state,msg){var el=document.getElementById('st'+n);el.className='ustep '+state;el.innerHTML='<span class="ustep-dot"></span>'+msg;}
+// ── HELPERS
+function fmt(n){ return typeof n==='number'?n.toLocaleString('en-IN',{maximumFractionDigits:0}):n; }
+function fmtDate(d){
+  if(!(d instanceof Date)) return d;
+  return String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear();
+}
+function formatPeriod(p){
+  if(!p) return '—';
+  var pts=p.split('-');
+  if(pts.length!==2) return p;
+  var MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return (MN[parseInt(pts[1],10)-1]||pts[1])+' '+pts[0];
+}
+function parseDate(raw){
+  // Never accept a JS Date object directly — Excel may have misread the format
+  // Always work from the string representation
+  var s = String(raw).trim();
 
+  // Handle Excel serial number (pure integer like "46143")
+  if(/^\d{4,6}$/.test(s)){
+    var serial = parseInt(s, 10);
+    // Excel epoch: Dec 30 1899 (accounts for Excel's 1900 leap year bug)
+    var d = new Date(Date.UTC(1899,11,30) + serial*86400000);
+    return d;
+  }
+
+  // Handle string dates — split on - or /
+  var parts = s.split(/[-\/]/);
+  if(parts.length === 3){
+    var p0=+parts[0], p1=+parts[1], p2=+parts[2];
+    var y, m, d;
+
+    if(parts[0].length === 4 && p0 > 1900){
+      // YYYY-MM-DD  e.g. 2026-05-01
+      y=p0; m=p1-1; d=p2;
+    } else {
+      // DD-MM-YYYY or DD/MM/YYYY — ALWAYS treat as Indian format
+      // p0 = day, p1 = month, p2 = year
+      d=p0; m=p1-1; y=p2;
+    }
+
+    if(y < 100) y += 2000;
+    var result = new Date(y, m, d);
+    return result;
+  }
+
+  // Fallback: try native parsing (handles "01 May 2026" etc)
+  return new Date(s);
+}
+
+// ── TOAST
+function toast(msg,isErr){
+  if(isErr===undefined) isErr=true;
+  var t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.borderColor=isErr?'#FECACA':'#A7F3D0';
+  t.style.color=isErr?'#DC2626':'#059669';
+  t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},4000);
+}
+function setStep(n,state,msg){
+  var el=document.getElementById('st'+n);
+  if(!el) return;
+  el.className='ustep '+state;
+  el.innerHTML='<span class="ustep-dot"></span>'+msg;
+}
+
+// ── TAB NAVIGATION (sections)
+function show(id,btn){
+  document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('on');});
+  document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('on');});
+  var el=document.getElementById(id);
+  if(el) el.classList.add('on');
+  if(btn) btn.classList.add('on');
+  if(id==='flow') setTimeout(renderFlowDiagram,50);
+}
+function ft(tid,q){
+  document.querySelectorAll('#'+tid+' tbody tr').forEach(function(r){
+    r.style.display=r.textContent.toLowerCase().indexOf(q.toLowerCase())>=0?'':'none';
+  });
+}
+
+// ── MONTH TABS (the per-month navigation)
+function buildMonthTabs(){
+  var container = document.getElementById('monthTabsContainer');
+  if(!container) return;
+  container.innerHTML='';
+  if(g_months.length===0){
+    container.style.display='none';
+    return;
+  }
+  container.style.display='flex';
+  g_months.forEach(function(m,i){
+    var btn = document.createElement('button');
+    btn.className = 'mtab' + (i===g_activeIdx?' mtab-active':'');
+    btn.textContent = formatPeriod(m.period);
+    btn.onclick = function(){ switchMonth(i); };
+    container.appendChild(btn);
+  });
+  // Count label
+  var lbl = document.getElementById('monthTabCount');
+  if(lbl) lbl.textContent = g_months.length > 1
+    ? g_months.length+' month'+(g_months.length>1?'s':'')+' loaded  (max '+MAX_MONTHS+')'
+    : '';
+}
+
+function switchMonth(idx){
+  if(idx<0||idx>=g_months.length) return;
+  g_activeIdx=idx;
+  var m=g_months[idx];
+  g_daily=m.daily; g_sku=m.sku; g_kpis=m.kpis;
+  g_errors=m.errors; g_lastFileName=m.fileName||'';
+  renderAll();
+  buildMonthTabs();
+}
+
+function renderAll(){
+  renderDashboard(); renderDaily(); renderSKU(); renderAlerts();
+  if(document.getElementById('flow').classList.contains('on')) renderFlowDiagram();
+}
+
+// ── COMPUTE INVENTORY from rawRows (array of {dk,sku,act,qty})
+function computeMonth(rawRows){
+  // Pivot: for each (dk, sku) sum each activity
+  var pivot={};
+  rawRows.forEach(function(r){
+    var key=r.dk+'|||'+r.sku;
+    if(!pivot[key]) pivot[key]={date:new Date(r.dk+'T00:00:00'),sku:r.sku};
+    var col=ACT_MAP[r.act];
+    if(col) pivot[key][col]=(pivot[key][col]||0)+r.qty;
+  });
+  var rows2=Object.values(pivot);
+  var skus=[];
+  rows2.forEach(function(r){if(skus.indexOf(r.sku)<0)skus.push(r.sku);});
+  skus.sort();
+  var dateSet=[];
+  rows2.forEach(function(r){var dk=r.date.toISOString().slice(0,10);if(dateSet.indexOf(dk)<0)dateSet.push(dk);});
+  dateSet.sort();
+  var lkp={};
+  rows2.forEach(function(r){lkp[r.date.toISOString().slice(0,10)+'|||'+r.sku]=r;});
+
+  var carry={};
+  skus.forEach(function(sku){
+    var r=lkp[(dateSet[0]||'')+'|||'+sku];
+    carry[sku]=r?(r.prev_closing||0):0;
+  });
+
+  var daily=[];
+  var errors=[];
+  dateSet.forEach(function(dk){
+    skus.forEach(function(sku){
+      var r=lkp[dk+'|||'+sku]||{};
+      var op=carry[sku]||0;
+      var inw=r.Inward||0,sal=r.Sales||0,fba=r.FBA||0,fbf=r.FBF||0,
+          sjt=r.SJIT||0,ggn=r.Transfer_GGN||0,blr=r.Transfer_BLR||0,
+          sto=r.Transfer_Store||0,oth=r.Others||0;
+      var cl=op+inw-sal-fba-fbf-sjt-ggn-blr-sto-oth;
+      if(cl<0) errors.push('Negative stock: '+sku+' on '+dk+' ('+cl+')');
+      daily.push({date:new Date(dk+'T00:00:00'),dk:dk,sku:sku,
+                  op:op,inw:inw,sal:sal,fba:fba,fbf:fbf,sjt:sjt,
+                  ggn:ggn,blr:blr,sto:sto,oth:oth,cl:cl});
+      carry[sku]=cl;
+    });
+  });
+
+  var sku_summary=skus.map(function(sku){
+    var rs=daily.filter(function(r){return r.sku===sku;});
+    function sm(f){return rs.reduce(function(a,r){return a+r[f];},0);}
+    var op=rs[0]?rs[0].op:0, cl=rs[rs.length-1]?rs[rs.length-1].cl:0;
+    var totOut=sm('sal')+sm('fba')+sm('fbf')+sm('sjt')+sm('ggn')+sm('blr')+sm('sto')+sm('oth');
+    var drr=(sm('sal')+sm('fba')+sm('fbf')+sm('sjt'))/Math.max(rs.length,1);
+    return{sku:sku,op:op,inw:sm('inw'),sal:sm('sal'),fba:sm('fba'),fbf:sm('fbf'),
+           sjt:sm('sjt'),ggn:sm('ggn'),blr:sm('blr'),sto:sm('sto'),oth:sm('oth'),
+           totOut:totOut,cl:cl,doi:drr>0?(cl/drr).toFixed(1):'N/A'};
+  });
+
+  var outs=sku_summary.map(function(r){return r.totOut;}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});
+  var q33=outs[Math.floor(outs.length*.33)]||0, q66=outs[Math.floor(outs.length*.66)]||0;
+  sku_summary.forEach(function(r){
+    r.tag=r.totOut===0?'Dead Stock':r.totOut>=q66?'Fast Moving':r.totOut>=q33?'Medium Moving':'Slow Moving';
+  });
+
+  var sklast={},skfirst={};
+  daily.forEach(function(r){sklast[r.sku]=r.cl;if(skfirst[r.sku]===undefined)skfirst[r.sku]=r.op;});
+  var totalCl=Object.values(sklast).reduce(function(a,v){return a+v;},0);
+  var totalOp=Object.values(skfirst).reduce(function(a,v){return a+v;},0);
+  function sm2(f){return daily.reduce(function(a,r){return a+r[f];},0);}
+  var kpis={
+    opening:totalOp,inward:sm2('inw'),sales:sm2('sal'),fba:sm2('fba'),fbf:sm2('fbf'),
+    sjit:sm2('sjt'),ggn:sm2('ggn'),blr:sm2('blr'),store:sm2('sto'),others:sm2('oth'),
+    closing:totalCl,util:(totalCl/CAPACITY*100).toFixed(2),
+    period:dateSet.length?dateSet[0].slice(0,7):'',
+    skuCount:skus.length, dayCount:dateSet.length
+  };
+  kpis.transfers=kpis.ggn+kpis.blr+kpis.store+kpis.others;
+
+  return {daily:daily, sku:sku_summary, kpis:kpis, errors:errors};
+}
+
+// ── FILE PROCESSOR — accumulates daily uploads into the correct month
+async function processFile(file){
+  g_lastFileName=file.name;
+  setStep(1,'active','Reading: '+file.name);
+  setStep(2,'','Validating');setStep(3,'','Computing');setStep(4,'','Ready');
+  document.getElementById('uploadActions').style.display='none';
+
+  try{
+    var data   = await file.arrayBuffer();
+    var wb_raw = XLSX.read(data,{type:'array',cellDates:false,raw:false});
+    var ws     = wb_raw.Sheets[wb_raw.SheetNames[0]];
+    var rows   = XLSX.utils.sheet_to_json(ws,{raw:false,defval:''});
+
+    if(!rows.length){toast('File is empty.');setStep(1,'error','Empty');return;}
+    setStep(1,'done','Read '+rows.length+' rows');
+
+    // Validate columns
+    setStep(2,'active','Validating...');
+    var required=['Sr.No.','Date','SKU Name','Quantity','Activity'];
+    var cols=Object.keys(rows[0]);
+    var missing=required.filter(function(c){
+      return !cols.some(function(k){return k.trim()===c.trim();});
+    });
+    if(missing.length){toast('Missing columns: '+missing.join(', '));setStep(2,'error','Missing cols');return;}
+
+    // Parse rows into canonical rawRows format
+    var warnings=[];
+    var parsed=[];
+    rows.forEach(function(r,i){
+      var act=(r['Activity']||'').trim();
+      var qty=parseFloat(r['Quantity'])||0;
+      var dt=parseDate(r['Date']);
+      if(isNaN(dt)){warnings.push('Row '+(i+2)+': bad date "'+r['Date']+'" — use DD-MM-YYYY format e.g. 01-05-2026');return;}
+      // Sanity check: year should be between 2020 and 2035
+      var yr=dt.getFullYear();
+      if(yr<2020||yr>2035){
+        // Try re-parsing with parts swapped (in case Excel swapped day/month)
+        var s2=String(r['Date']).trim();
+        var pts2=s2.split(/[-\/]/);
+        if(pts2.length===3){
+          var alt=new Date(+pts2[2],+pts2[0]-1,+pts2[1]);
+          if(!isNaN(alt)&&alt.getFullYear()>=2020&&alt.getFullYear()<=2035){dt=alt;}
+          else{warnings.push('Row '+(i+2)+': date year '+yr+' looks wrong — use DD-MM-YYYY format');return;}
+        }else{warnings.push('Row '+(i+2)+': date year '+yr+' looks wrong');return;}
+      }
+      if(!VALID_ACTS.includes(act)){warnings.push('Row '+(i+2)+': unknown activity "'+act+'"');return;}
+      var dk=dt.toISOString().slice(0,10);
+      var period=dk.slice(0,7); // 'YYYY-MM'
+      parsed.push({dk:dk, period:period, sku:(r['SKU Name']||'').trim(), act:act, qty:qty});
+    });
+
+    if(!parsed.length){
+      toast('No valid rows found after validation. Check date format and activity names.');
+      setStep(2,'error','No valid rows'); return;
+    }
+
+    // Group parsed rows by period
+    var byPeriod={};
+    parsed.forEach(function(r){
+      if(!byPeriod[r.period]) byPeriod[r.period]=[];
+      byPeriod[r.period].push(r);
+    });
+
+    var periodsInFile=Object.keys(byPeriod).sort().reverse(); // newest first
+    setStep(2,'done','Validated — '+parsed.length+' rows across '+periodsInFile.length+' period(s)'+(warnings.length?' ('+warnings.length+' skipped)':''));
+    setStep(3,'active','Computing inventory...');
+
+    // For each period in the file: merge into existing month or create new
+    var updatedPeriods=[];
+    periodsInFile.forEach(function(period){
+      var newRows=byPeriod[period];
+      var existingIdx=-1;
+      g_months.forEach(function(m,i){if(m.period===period) existingIdx=i;});
+
+      if(existingIdx>=0){
+        // ── ACCUMULATE: merge new rows into existing rawRows
+        // Rule: for same (dk, sku, activity) → use new value (daily overwrite)
+        //       for new (dk, sku, activity) → append
+        var existing=g_months[existingIdx];
+        var merged=existing.rawRows.slice(); // copy
+        newRows.forEach(function(nr){
+          var found=false;
+          for(var j=0;j<merged.length;j++){
+            if(merged[j].dk===nr.dk && merged[j].sku===nr.sku && merged[j].act===nr.act){
+              merged[j]=nr; found=true; break;
+            }
+          }
+          if(!found) merged.push(nr);
+        });
+        var computed=computeMonth(merged);
+        g_months[existingIdx]=Object.assign(existing,{
+          rawRows:merged, fileName:file.name,
+          daily:computed.daily, sku:computed.sku,
+          kpis:computed.kpis, errors:computed.errors.concat(warnings)
+        });
+        updatedPeriods.push({period:period, action:'updated', idx:existingIdx});
+      } else {
+        // ── NEW MONTH: create entry
+        var computed=computeMonth(newRows);
+        var newMonth={
+          period:period, fileName:file.name, rawRows:newRows,
+          daily:computed.daily, sku:computed.sku,
+          kpis:computed.kpis, errors:computed.errors.concat(warnings)
+        };
+        // Insert in sorted order (newest first)
+        var insertAt=0;
+        while(insertAt<g_months.length && g_months[insertAt].period>period) insertAt++;
+        g_months.splice(insertAt,0,newMonth);
+        // Trim to MAX_MONTHS (remove oldest)
+        while(g_months.length>MAX_MONTHS) g_months.pop();
+        updatedPeriods.push({period:period, action:'added', idx:insertAt});
+      }
+    });
+
+    // Switch to the newest period that was just updated
+    var newestPeriod=periodsInFile[0];
+    g_activeIdx=0;
+    g_months.forEach(function(m,i){if(m.period===newestPeriod) g_activeIdx=i;});
+
+    // Update global aliases
+    var active=g_months[g_activeIdx];
+    g_daily=active.daily; g_sku=active.sku; g_kpis=active.kpis;
+    g_errors=active.errors; g_lastFileName=active.fileName;
+
+    setStep(3,'done','Computed '+active.daily.length+' records for '+formatPeriod(active.period));
+    setStep(4,'active','Rendering...');
+
+    renderAll();
+    buildMonthTabs();
+    saveToStorage();
+
+    setStep(4,'done','Ready!');
+    document.getElementById('uploadActions').style.display='flex';
+    document.getElementById('undoBtn').style.display='inline-flex';
+
+    // Summary toast
+    var actions=updatedPeriods.map(function(u){return formatPeriod(u.period)+' '+u.action;}).join(', ');
+    toast(file.name+': '+actions+(warnings.length?' · '+warnings.length+' rows skipped':''), false);
+
+    // Update banner
+    var b=document.getElementById('dataBanner');
+    b.className='data-banner db-fresh';
+    var totalRecs=g_months.reduce(function(a,m){return a+m.daily.length;},0);
+    b.textContent='\u2705 '+g_months.length+' month'+(g_months.length>1?'s':'')+' loaded  \u00B7  '
+      +formatPeriod(active.period)+' active  \u00B7  '+totalRecs+' total daily records';
+
+  }catch(err){
+    setStep(3,'error','Error: '+err.message);
+    toast('Error: '+err.message);
+    console.error(err);
+  }
+}
+
+// ── DRAG & DROP
 var dz=document.getElementById('dropZone');
 var fi=document.getElementById('fileInput');
 dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag');});
 dz.addEventListener('dragleave',function(){dz.classList.remove('drag');});
-dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('drag');var file=e.dataTransfer.files[0];if(file)processFile(file);});
+dz.addEventListener('drop',function(e){
+  e.preventDefault();dz.classList.remove('drag');
+  var f=e.dataTransfer.files[0];if(f)processFile(f);
+});
 fi.addEventListener('change',function(e){if(e.target.files[0])processFile(e.target.files[0]);});
 
-function pushHistory(fileName){
-  if(g_daily.length===0)return;
-  var snap={fileName:fileName,daily:JSON.parse(JSON.stringify(g_daily)),sku:JSON.parse(JSON.stringify(g_sku)),kpis:JSON.parse(JSON.stringify(g_kpis)),errors:g_errors.slice()};
-  g_history.unshift(snap);
-  if(g_history.length>MAX_HISTORY)g_history.pop();
-}
-
-function showUndo(){
-  if(g_history.length===0&&g_daily.length===0){toast('Nothing to undo yet.');return;}
-  var html='';
-  if(g_daily.length>0){html+='<div style="padding:8px 0;border-bottom:1px solid var(--bdr);font-size:12px;color:var(--sky)"><strong>Current:</strong> '+(g_lastFileName||'Unknown')+' &mdash; '+g_sku.length+' SKUs, '+g_daily.length+' records</div>';}
-  if(g_history.length>0){
-    html+='<div style="font-size:11px;color:var(--muted);margin-top:8px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.8px">Restore to previous version:</div>';
-    for(var i=0;i<g_history.length;i++){
-      var hh=g_history[i];
-      html+='<div onclick="restoreHistory('+i+')" style="cursor:pointer;padding:8px 12px;margin-top:6px;background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;font-size:12px;color:var(--text)" onmouseover="this.style.borderColor=\'var(--sky)\'" onmouseout="this.style.borderColor=\'var(--bdr)\'"><span style="color:var(--muted);font-family:var(--fm)">v'+(g_history.length-i)+'</span> '+hh.fileName+' <span style="color:var(--muted)">'+hh.sku.length+' SKUs &middot; '+hh.daily.length+' records</span><span style="float:right;color:var(--sky);font-size:11px">Restore &rarr;</span></div>';
-    }
-  }else{html+='<div style="font-size:12px;color:var(--muted);margin-top:8px">No previous versions yet.</div>';}
-  document.getElementById('undoMeta').innerHTML=html;
-  document.getElementById('undoModal').classList.add('show');
-}
-
-function restoreHistory(idx){
-  var snap=g_history[idx];if(!snap)return;
-  if(g_daily.length>0){g_history.unshift({fileName:g_lastFileName,daily:JSON.parse(JSON.stringify(g_daily)),sku:JSON.parse(JSON.stringify(g_sku)),kpis:JSON.parse(JSON.stringify(g_kpis)),errors:g_errors.slice()});}
-  g_history.splice(idx+1,1);
-  if(g_history.length>MAX_HISTORY)g_history.pop();
-  g_daily=snap.daily;g_sku=snap.sku;g_kpis=snap.kpis;g_errors=snap.errors;g_lastFileName=snap.fileName;
-  renderDashboard();renderDaily();renderSKU();renderAlerts();saveToStorage();
-  closeUndo();toast('Restored: '+snap.fileName,false);
-}
-
-function closeUndo(){document.getElementById('undoModal').classList.remove('show');}
-
-function confirmUndo(){g_daily=[];g_sku=[];g_kpis={};g_errors=[];g_lastFileName='';g_history=[];clearStorage();applyEmptyState();closeUndo();toast('All data cleared.',false);}
-
-function applyEmptyState(){
-  ['kOpening','kInward','kSales','kFBA','kGGN','kStore','kOthers','kClosing','kUtil'].forEach(function(id){document.getElementById(id).textContent='\u2014';});
-  document.getElementById('capPct').textContent='\u2014';
-  document.getElementById('capBar').style.width='0%';
-  document.getElementById('csStock').textContent='\u2014';
-  document.getElementById('csAvail').textContent='\u2014';
-  document.getElementById('csPeriod').textContent='\u2014';
-  var b=document.getElementById('dataBanner');
-  b.className='data-banner db-empty';
-  b.innerHTML='\uD83D\uDCED No data loaded. <a onclick="document.getElementById(\'fileInput\').click()" style="cursor:pointer;color:var(--sky)">Upload your stock sheet above</a> to populate the dashboard.';
-  var vb=document.getElementById('valBanner');vb.style.display='none';vb.textContent='';
-  document.getElementById('dtbody').innerHTML='<tr><td colspan="13" style="text-align:center;color:var(--dim);padding:30px">Upload a file to see daily inventory</td></tr>';
-  document.getElementById('skbody').innerHTML='<tr><td colspan="15" style="text-align:center;color:var(--dim);padding:30px">Upload a file to see SKU summary</td></tr>';
-  document.getElementById('acards').innerHTML='';
-  document.getElementById('sht').innerHTML='';
-  document.getElementById('ac').textContent='0';
-  document.getElementById('utilPill').textContent='\u26A1 \u2014% utilized';
-  document.getElementById('periodPill').textContent='\uD83D\uDDD3 \u2014 \u00B7 \u2014 SKUs';
-  document.getElementById('flowPeriod').textContent='\u2014';
-  setStep(1,'','Waiting for file\u2026');setStep(2,'','Validating data');setStep(3,'','Computing inventory');setStep(4,'','Dashboard ready');
-  document.getElementById('uploadActions').style.display='none';
-  document.getElementById('undoBtn').style.display='none';
-  document.getElementById('fileInput').value='';
-}
-
+// ── TEMPLATE DOWNLOAD
 function dlTemplate(){
   var wb2=XLSX.utils.book_new();
   var hdr=['Sr.No.','Date','SKU Name','Quantity','Activity'];
-  var acts=['Closing Stock Previous Month','Inward','Sales','FBA','FBF','SJIT','Stock Transfer to GGN','Stock Transfer to BLR','Stock Transfer to Store','Others','Opening Stock Next Month'];
-  var rows=[[1,'01-05-2026','ABC',100,'Closing Stock Previous Month'],[2,'01-05-2026','BCD',200,'Closing Stock Previous Month'],[3,'01-05-2026','ABC',50,'Inward'],[4,'02-05-2026','ABC',30,'Sales'],[5,'03-05-2026','BCD',20,'FBA'],[6,'04-05-2026','ABC',10,'Stock Transfer to GGN'],[7,'04-05-2026','BCD',5,'Others'],['','','','',''],['','--- VALID ACTIVITY TYPES (copy exact spelling) ---','','','']];
-  acts.forEach(function(a){rows.push(['',a,'','','']);});
-  var ws2=XLSX.utils.aoa_to_sheet([hdr].concat(rows));
+  var acts=VALID_ACTS;
+  var sample_rows=[
+    [1,'01-05-2026','SKU001',100,'Closing Stock Previous Month'],
+    [2,'01-05-2026','SKU002',200,'Closing Stock Previous Month'],
+    [3,'01-05-2026','SKU001',50,'Inward'],
+    [4,'02-05-2026','SKU001',30,'Sales'],
+    [5,'03-05-2026','SKU002',20,'FBA'],
+    [6,'04-05-2026','SKU001',10,'Stock Transfer to GGN'],
+    [7,'04-05-2026','SKU002',5,'Others'],
+    ['','','','',''],
+    ['','--- VALID ACTIVITY VALUES (copy exact spelling) ---','','','']
+  ];
+  acts.forEach(function(a){sample_rows.push(['',a,'','','']);});
+  var ws2=XLSX.utils.aoa_to_sheet([hdr].concat(sample_rows));
   ws2['!cols']=[{wch:8},{wch:14},{wch:14},{wch:10},{wch:38}];
+  // Mark Date column (B) as TEXT format so Excel never auto-converts dates
+  var range=XLSX.utils.decode_range(ws2['!ref']);
+  for(var R=1;R<=range.e.r;R++){
+    var cellAddr='B'+(R+1);
+    if(ws2[cellAddr]){
+      ws2[cellAddr].t='s';  // force string type
+      ws2[cellAddr].z='@'; // text format
+    }
+  }
   XLSX.utils.book_append_sheet(wb2,ws2,'Input Template');
   XLSX.writeFile(wb2,'Kheda_Warehouse_Input_Template.xlsx');
   toast('Template downloaded!',false);
 }
 
-async function processFile(file){
-  g_errors=[];g_lastFileName=file.name;
-  setStep(1,'active','Reading: '+file.name);
-  setStep(2,'','Validating data');setStep(3,'','Computing inventory');setStep(4,'','Dashboard ready');
-  document.getElementById('uploadActions').style.display='none';
-  try{
-    var data=await file.arrayBuffer();
-    var wb_raw=XLSX.read(data,{type:'array',cellDates:true});
-    var ws=wb_raw.Sheets[wb_raw.SheetNames[0]];
-    var rows=XLSX.utils.sheet_to_json(ws,{raw:false,dateNF:'DD-MM-YYYY'});
-    if(!rows.length){toast('File is empty.');setStep(1,'error','File empty');return;}
-    setStep(1,'done','Read '+rows.length+' rows');
-    setStep(2,'active','Validating...');
-    var required=['Sr.No.','Date','SKU Name','Quantity','Activity'];
-    var cols=Object.keys(rows[0]);
-    var missing=required.filter(function(c){return !cols.some(function(k){return k.trim()===c.trim();});});
-    if(missing.length){toast('Missing columns: '+missing.join(', '));setStep(2,'error','Missing columns');return;}
-    var df=rows.map(function(r,i){
-      var act=(r['Activity']||'').trim();
-      var qty=parseFloat(r['Quantity'])||0;
-      var dt=r['Date'];
-      if(!(dt instanceof Date)){
-        var parts=String(dt).split(/[-\/]/);
-        if(parts.length===3){
-          var p0=+parts[0],p1=+parts[1],p2=+parts[2];
-          var y,m,d;
-          if(p0>31){y=p0;m=p1-1;d=p2;}          // YYYY-MM-DD
-          else if(p2>31){y=p2;m=p1-1;d=p0;}     // DD-MM-YYYY
-          else if(p1>12){y=p2;m=p0-1;d=p1;}     // MM/DD/YYYY (US)
-          else{y=p2;m=p1-1;d=p0;}               // DD/MM/YYYY default
-          if(y<100) y+=2000;
-          dt=new Date(y,m,d);
-        }
-        else{dt=new Date(dt);}
-      }
-      return{_row:i+2,date:dt,sku:(r['SKU Name']||'').trim(),qty:qty,act:act};
-    });
-    var badActs=df.filter(function(r){return!VALID_ACTS.includes(r.act);});
-    if(badActs.length){var uniq=[];badActs.forEach(function(r){if(uniq.indexOf(r.act)<0)uniq.push(r.act);});g_errors.push(badActs.length+' rows with unknown activity: '+uniq.slice(0,3).join(', '));}
-    var badDates=df.filter(function(r){return isNaN(r.date);});
-    if(badDates.length)g_errors.push(badDates.length+' rows with bad dates');
-    setStep(2,'done','Validated'+(g_errors.length?' ('+g_errors.length+' warnings)':''));
-    setStep(3,'active','Computing inventory...');
-    var clean=df.filter(function(r){return!isNaN(r.date)&&VALID_ACTS.includes(r.act);});
-    var pivot={};
-    clean.forEach(function(r){var dk=r.date.toISOString().slice(0,10);var key=dk+'|||'+r.sku;if(!pivot[key])pivot[key]={date:r.date,sku:r.sku};var col=ACT_MAP[r.act];pivot[key][col]=(pivot[key][col]||0)+r.qty;});
-    var rows2=Object.values(pivot);
-    var skus=[];rows2.forEach(function(r){if(skus.indexOf(r.sku)<0)skus.push(r.sku);});skus.sort();
-    var dateSet=[];rows2.forEach(function(r){var dk=r.date.toISOString().slice(0,10);if(dateSet.indexOf(dk)<0)dateSet.push(dk);});dateSet.sort();
-    var lkp={};rows2.forEach(function(r){lkp[r.date.toISOString().slice(0,10)+'|||'+r.sku]=r;});
-    var carry={};
-    skus.forEach(function(sku){var r=lkp[dateSet[0]+'|||'+sku];carry[sku]=r?(r.prev_closing||0):0;});
-    g_daily=[];
-    dateSet.forEach(function(dk){
-      skus.forEach(function(sku){
-        var r=lkp[dk+'|||'+sku]||{};
-        var op=carry[sku]||0;
-        var inw=r.Inward||0,sal=r.Sales||0,fba=r.FBA||0,fbf=r.FBF||0,sjt=r.SJIT||0,ggn=r.Transfer_GGN||0,blr=r.Transfer_BLR||0,sto=r.Transfer_Store||0,oth=r.Others||0;
-        var cl=op+inw-sal-fba-fbf-sjt-ggn-blr-sto-oth;
-        if(cl<0)g_errors.push('Negative stock: '+sku+' on '+dk);
-        g_daily.push({date:new Date(dk+'T00:00:00'),dk:dk,sku:sku,op:op,inw:inw,sal:sal,fba:fba,fbf:fbf,sjt:sjt,ggn:ggn,blr:blr,sto:sto,oth:oth,cl:cl});
-        carry[sku]=cl;
-      });
-    });
-    g_sku=skus.map(function(sku){
-      var rs=g_daily.filter(function(r){return r.sku===sku;});
-      function sm(f){return rs.reduce(function(a,r){return a+r[f];},0);}
-      var op=rs[0]?rs[0].op:0,cl=rs[rs.length-1]?rs[rs.length-1].cl:0;
-      var totOut=sm('sal')+sm('fba')+sm('fbf')+sm('sjt')+sm('ggn')+sm('blr')+sm('sto')+sm('oth');
-      var drr=(sm('sal')+sm('fba')+sm('fbf')+sm('sjt'))/Math.max(rs.length,1);
-      return{sku:sku,op:op,inw:sm('inw'),sal:sm('sal'),fba:sm('fba'),fbf:sm('fbf'),sjt:sm('sjt'),ggn:sm('ggn'),blr:sm('blr'),sto:sm('sto'),oth:sm('oth'),totOut:totOut,cl:cl,doi:drr>0?(cl/drr).toFixed(1):'N/A'};
-    });
-    var outs=g_sku.map(function(r){return r.totOut;}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});
-    var q33=outs[Math.floor(outs.length*.33)]||0,q66=outs[Math.floor(outs.length*.66)]||0;
-    g_sku.forEach(function(r){r.tag=r.totOut===0?'Dead Stock':r.totOut>=q66?'Fast Moving':r.totOut>=q33?'Medium Moving':'Slow Moving';});
-    var sklast={},skfirst={};
-    g_daily.forEach(function(r){sklast[r.sku]=r.cl;if(skfirst[r.sku]===undefined)skfirst[r.sku]=r.op;});
-    var totalCl=Object.values(sklast).reduce(function(a,v){return a+v;},0);
-    var totalOp=Object.values(skfirst).reduce(function(a,v){return a+v;},0);
-    function sm2(f){return g_daily.reduce(function(a,r){return a+r[f];},0);}
-    g_kpis={opening:totalOp,inward:sm2('inw'),sales:sm2('sal'),fba:sm2('fba'),fbf:sm2('fbf'),sjit:sm2('sjt'),ggn:sm2('ggn'),blr:sm2('blr'),store:sm2('sto'),others:sm2('oth'),closing:totalCl,util:(totalCl/CAPACITY*100).toFixed(2),period:dateSet[0].slice(0,7)};
-    g_kpis.transfers=g_kpis.ggn+g_kpis.blr+g_kpis.store+g_kpis.others;
-    setStep(3,'done','Computed '+g_daily.length+' records');
-    setStep(4,'active','Rendering...');
-    pushHistory(file.name);
-    renderDashboard();renderDaily();renderSKU();renderAlerts();saveToStorage();
-    setStep(4,'done','Dashboard ready!');
-    document.getElementById('uploadActions').style.display='flex';
-    document.getElementById('undoBtn').style.display='inline-flex';if(document.getElementById('flow').classList.contains('on'))renderFlowDiagram();
-    toast('Loaded: '+file.name,false);
-  }catch(err){setStep(3,'error','Error: '+err.message);toast('Error: '+err.message);console.error(err);}
+// ── UNDO / CLEAR
+function showUndo(){
+  if(!g_months.length){toast('No data loaded yet.');return;}
+  var html='<div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">Loaded months — click to remove one:</div>';
+  g_months.forEach(function(m,i){
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;margin-bottom:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:12px;">'
+      +'<span><b>'+formatPeriod(m.period)+'</b> &nbsp;<span style="color:var(--muted)">'+m.rawRows.length+' raw rows  \u00B7  '+m.daily.length+' daily records  \u00B7  '+m.sku.length+' SKUs</span></span>'
+      +'<button onclick="removeMonth('+i+')" style="padding:4px 12px;border-radius:6px;border:1px solid #FECACA;background:#FEF2F2;color:#DC2626;font-size:11px;font-weight:600;cursor:pointer;">Remove</button>'
+      +'</div>';
+  });
+  document.getElementById('undoMeta').innerHTML=html;
+  document.getElementById('undoModal').classList.add('show');
+}
+function removeMonth(idx){
+  g_months.splice(idx,1);
+  if(!g_months.length){
+    applyEmptyState();
+    closeUndo();
+    saveToStorage();
+    buildMonthTabs();
+    return;
+  }
+  g_activeIdx=Math.min(g_activeIdx,g_months.length-1);
+  switchMonth(g_activeIdx);
+  saveToStorage();
+  buildMonthTabs();
+  // Rebuild modal content
+  showUndo();
+}
+function confirmUndo(){
+  g_months=[];g_activeIdx=0;
+  g_daily=[];g_sku=[];g_kpis={};g_errors=[];g_lastFileName='';g_history=[];
+  clearStorage();applyEmptyState();buildMonthTabs();closeUndo();
+  toast('All data cleared.',false);
+}
+function closeUndo(){document.getElementById('undoModal').classList.remove('show');}
+
+function applyEmptyState(){
+  ['kOpening','kInward','kSales','kFBA','kGGN','kStore','kOthers','kClosing','kUtil'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.textContent='\u2014';
+  });
+  var cp=document.getElementById('capPct');if(cp)cp.textContent='\u2014';
+  var cb=document.getElementById('capBar');if(cb)cb.style.width='0%';
+  ['csStock','csAvail','csPeriod'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.textContent='\u2014';
+  });
+  var b=document.getElementById('dataBanner');
+  if(b){b.className='data-banner db-empty';
+    b.innerHTML='\uD83D\uDCED No data loaded. <a onclick="document.getElementById(\'fileInput\').click()" style="cursor:pointer;color:var(--blue)">Upload your daily stock sheet</a> to begin.';}
+  var vb=document.getElementById('valBanner');if(vb){vb.style.display='none';vb.textContent='';}
+  var dt=document.getElementById('dtbody');
+  if(dt)dt.innerHTML='<tr><td colspan="13" style="text-align:center;color:var(--dim);padding:30px">Upload a file to see daily inventory</td></tr>';
+  var sk=document.getElementById('skbody');
+  if(sk)sk.innerHTML='<tr><td colspan="15" style="text-align:center;color:var(--dim);padding:30px">Upload a file to see SKU summary</td></tr>';
+  var ac=document.getElementById('acards');if(ac)ac.innerHTML='';
+  var sh=document.getElementById('sht');if(sh)sh.innerHTML='';
+  var acnt=document.getElementById('ac');if(acnt)acnt.textContent='0';
+  ['utilPill','periodPill'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el)el.textContent=id==='utilPill'?'\u26A1 Upload data':'\uD83D\uDDD3 No data';
+  });
+  var fp=document.getElementById('flowPeriod');if(fp)fp.textContent='\u2014';
+  setStep(1,'','Waiting for file\u2026');setStep(2,'','Validating');
+  setStep(3,'','Computing');setStep(4,'','Ready');
+  var ua=document.getElementById('uploadActions');if(ua)ua.style.display='none';
+  var ub=document.getElementById('undoBtn');if(ub)ub.style.display='none';
+  var fi2=document.getElementById('fileInput');if(fi2)fi2.value='';
 }
 
-function fmt(n){return typeof n!=='number'?n:n.toLocaleString('en-IN',{maximumFractionDigits:0});}
-function fmtDate(d){if(!(d instanceof Date))return d;return String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear();}
-
+// ── RENDER FUNCTIONS
 function renderDashboard(){
   var k=g_kpis;
+  if(!k||k.closing===undefined) return;
   document.getElementById('kOpening').textContent=fmt(k.opening);
   document.getElementById('kInward').textContent=fmt(k.inward);
   document.getElementById('kSales').textContent=fmt(k.sales);
@@ -656,24 +991,29 @@ function renderDashboard(){
   document.getElementById('kOthers').textContent=fmt(k.others);
   document.getElementById('kClosing').textContent=fmt(k.closing);
   document.getElementById('kUtil').textContent=k.util+'%';
-  document.getElementById('capPct').textContent=k.util+'% '+(+k.util>100?'\uD83D\uDD34':+k.util>75?'\u26A0\uFE0F':'\u2705');
-  document.getElementById('capBar').style.width=Math.min(+k.util,100)+'%';
+  var util=+k.util;
+  document.getElementById('capPct').textContent=k.util+'% '+(util>100?'\uD83D\uDD34':util>75?'\u26A0\uFE0F':'\u2705');
+  document.getElementById('capBar').style.width=Math.min(util,100)+'%';
   document.getElementById('csStock').textContent=fmt(k.closing);
   document.getElementById('csAvail').textContent=fmt(CAPACITY-k.closing);
-  document.getElementById('csPeriod').textContent=k.period;
+  document.getElementById('csPeriod').textContent=formatPeriod(k.period);
   document.getElementById('utilPill').textContent='\u26A1 '+k.util+'% utilized';
-  document.getElementById('periodPill').textContent='\uD83D\uDDD3 '+k.period+' \u00B7 '+g_sku.length+' SKUs';
-  document.getElementById('flowPeriod').textContent=k.period;
-  var b=document.getElementById('dataBanner');
-  b.className='data-banner db-fresh';
-  b.textContent='\u2705 Loaded '+k.period+' \u2014 '+g_daily.length+' records, '+g_sku.length+' SKUs.';
+  document.getElementById('periodPill').textContent='\uD83D\uDDD3 '+formatPeriod(k.period)+' \u00B7 '+g_sku.length+' SKUs';
+  var fp=document.getElementById('flowPeriod');if(fp)fp.textContent=formatPeriod(k.period);
   var vb=document.getElementById('valBanner');
-  if(g_errors.length){vb.style.display='flex';vb.style.background='rgba(255,71,87,.08)';vb.style.borderColor='rgba(255,71,87,.3)';vb.style.color='var(--danger)';vb.textContent='\u26A0\uFE0F '+g_errors.length+' warnings: '+g_errors.slice(0,2).join(' | ');}
-  else{vb.style.display='flex';vb.style.removeProperty('background');vb.style.removeProperty('border-color');vb.style.removeProperty('color');vb.textContent='\u2705 All records validated, no errors.';}
+  if(g_errors.length){
+    vb.style.display='flex';vb.style.background='#FEF2F2';
+    vb.style.borderColor='#FECACA';vb.style.color='#DC2626';
+    vb.textContent='\u26A0\uFE0F '+g_errors.length+' warnings: '+g_errors.slice(0,2).join(' | ');
+  }else{
+    vb.style.display='flex';vb.style.removeProperty('background');
+    vb.style.removeProperty('border-color');vb.style.removeProperty('color');
+    vb.textContent='\u2705 All records validated for '+formatPeriod(k.period)+'.';
+  }
 }
 
 function renderDaily(){
-  document.getElementById('dtbody').innerHTML=g_daily.map(function(r){
+  var rows=g_daily.map(function(r){
     var cn=r.cl<0?'vn':r.cl<50?'vw':'';
     return '<tr><td>'+fmtDate(r.date)+'</td><td>'+r.sku+'</td><td>'+fmt(r.op)+'</td>'
       +'<td class="'+(r.inw>0?'vp':'vz')+'">'+fmt(r.inw)+'</td>'
@@ -686,12 +1026,14 @@ function renderDaily(){
       +'<td class="'+(r.sto>0?'vn':'vz')+'">'+fmt(r.sto)+'</td>'
       +'<td class="'+(r.oth>0?'vn':'vz')+'">'+fmt(r.oth)+'</td>'
       +'<td class="'+cn+'">'+fmt(r.cl)+'</td></tr>';
-  }).join('');
+  });
+  document.getElementById('dtbody').innerHTML=rows.join('')||
+    '<tr><td colspan="13" style="text-align:center;color:var(--dim);padding:20px">No records</td></tr>';
 }
 
 function renderSKU(){
   var tc={'Fast Moving':'bf','Medium Moving':'bm','Slow Moving':'bs','Dead Stock':'bd'};
-  document.getElementById('skbody').innerHTML=g_sku.map(function(r){
+  var rows=g_sku.map(function(r){
     var cn=r.cl<0?'vn':r.cl<50?'vw':'';
     return '<tr><td>'+r.sku+'</td><td>'+fmt(r.op)+'</td>'
       +'<td class="'+(r.inw>0?'vp':'vz')+'">'+fmt(r.inw)+'</td>'
@@ -707,39 +1049,41 @@ function renderSKU(){
       +'<td class="'+cn+'">'+fmt(r.cl)+'</td>'
       +'<td>'+r.doi+'</td>'
       +'<td><span class="badge '+(tc[r.tag]||'bd')+'">'+r.tag.replace(' Moving','')+'</span></td></tr>';
-  }).join('');
+  });
+  document.getElementById('skbody').innerHTML=rows.join('')||
+    '<tr><td colspan="15" style="text-align:center;color:var(--dim);padding:20px">No records</td></tr>';
 }
 
 function renderAlerts(){
   function dL(u,d){return d===0?Infinity:+(u/d).toFixed(1);}
   function sC(d){return d===Infinity?'var(--dim)':d<=3?'var(--danger)':d<=7?'var(--warn)':d<=14?'var(--amber)':'var(--ok)';}
-  function mC(d){return d===Infinity?'#3A5A7F':d<=3?'#FF4757':d<=7?'#FFA502':'#2ED573';}
+  function mC(d){return d===Infinity?'#E5E7EB':d<=3?'#FCA5A5':d<=7?'#FCD34D':'#6EE7B7';}
   var skuData=g_sku.map(function(r){
-    var days_n=g_daily.filter(function(d){return d.sku===r.sku;}).length;
-    var drr=(r.sal+r.fba+r.fbf+r.sjt)/Math.max(1,days_n);
-    return{sku:r.sku,units:r.cl,drr:drr};
+    var dn=g_daily.filter(function(d){return d.sku===r.sku;}).length;
+    return{sku:r.sku,units:r.cl,drr:(r.sal+r.fba+r.fbf+r.sjt)/Math.max(1,dn)};
   });
   var alerts=skuData.filter(function(s){return dL(s.units,s.drr)<=14&&s.drr>0;});
   document.getElementById('ac').textContent=alerts.length;
   document.getElementById('acards').innerHTML=alerts.map(function(s){
     var d=dL(s.units,s.drr),col=sC(d),mc=mC(d),pct=Math.min(100,Math.round(d/30*100));
-    return '<div class="acard"><div><div style="font-family:var(--fd);font-size:19px;font-weight:800">'+s.sku+'</div>'
-      +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+fmt(s.units)+' units &middot; DRR: '+s.drr.toFixed(1)+'/day</div></div>'
+    return '<div class="acard"><div><div style="font-size:18px;font-weight:700;color:var(--text)">'+s.sku+'</div>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+fmt(s.units)+' units \u00B7 DRR: '+s.drr.toFixed(1)+'/day</div></div>'
       +'<div class="ameter"><div style="font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.8px">Days Remaining</div>'
       +'<div class="amtrk"><div class="amfil" style="width:'+pct+'%;background:'+mc+'"></div></div></div>'
       +'<div><div class="adays" style="color:'+col+'">'+d+'</div><div style="font-size:10px;color:var(--muted);text-align:center">days left</div></div>'
-      +'<div style="font-size:26px">'+(d<=3?'\uD83C\uDD98':'\u26A0\uFE0F')+'</div></div>';
+      +'<div style="font-size:24px">'+(d<=3?'\uD83C\uDD98':'\u26A0\uFE0F')+'</div></div>';
   }).join('');
   document.getElementById('sht').innerHTML=skuData.map(function(s){
     var d=dL(s.units,s.drr),col=sC(d),disp=d===Infinity?'\u221E':d;
     var em=s.drr===0?'\u26AA Dead Stock':d<=3?'\uD83D\uDD34 Critical':d<=7?'\uD83D\uDFE0 Warning':d<=14?'\uD83D\uDFE1 Watch':'\uD83D\uDFE2 Healthy';
     return '<tr><td>'+s.sku+'</td><td style="color:'+col+';text-align:right">'+fmt(s.units)+'</td>'
       +'<td style="text-align:right">'+s.drr.toFixed(1)+'</td>'
-      +'<td style="color:'+col+';text-align:right;font-weight:700">'+disp+'</td>'
+      +'<td style="color:'+col+';text-align:right;font-weight:600">'+disp+'</td>'
       +'<td style="text-align:right">'+em+'</td></tr>';
   }).join('');
 }
 
+// ── DOWNLOADS
 function dlT(tid,name){
   var rows=document.querySelectorAll('#'+tid+' tr');
   var lines=[];
@@ -750,7 +1094,6 @@ function dlT(tid,name){
   });
   dlRaw(lines.join('\r\n'),name+'_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
 }
-
 function dlAlerts(){
   var lines=['"SKU","Units","DRR","Days Remaining","Status"'];
   g_sku.forEach(function(r){
@@ -762,325 +1105,214 @@ function dlAlerts(){
   });
   dlRaw(lines.join('\r\n'),'stockout_alerts_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
 }
-
 function dlDailyCSV(){
   var lines=['"Date","SKU","Opening","Inward","Sales","FBA","FBF","SJIT","GGN","BLR","Store","Others","Closing"'];
-  g_daily.forEach(function(r){lines.push([fmtDate(r.date),r.sku,r.op,r.inw,r.sal,r.fba,r.fbf,r.sjt,r.ggn,r.blr,r.sto,r.oth,r.cl].map(function(v){return'"'+v+'"';}).join(','));});
-  dlRaw(lines.join('\r\n'),'daily_inventory_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
+  g_daily.forEach(function(r){
+    lines.push([fmtDate(r.date),r.sku,r.op,r.inw,r.sal,r.fba,r.fbf,r.sjt,r.ggn,r.blr,r.sto,r.oth,r.cl]
+      .map(function(v){return'"'+v+'"';}).join(','));
+  });
+  dlRaw(lines.join('\r\n'),'daily_'+g_kpis.period+'_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
 }
-
 function dlProcessedExcel(){
   if(!g_daily.length){toast('No data to export.');return;}
   var wb2=XLSX.utils.book_new();
   var dH=['Date','SKU','Opening','Inward','Sales','FBA','FBF','SJIT','GGN','BLR','Store','Others','Closing'];
-  var dD=[dH];g_daily.forEach(function(r){dD.push([fmtDate(r.date),r.sku,r.op,r.inw,r.sal,r.fba,r.fbf,r.sjt,r.ggn,r.blr,r.sto,r.oth,r.cl]);});
+  var dD=[dH];
+  g_daily.forEach(function(r){dD.push([fmtDate(r.date),r.sku,r.op,r.inw,r.sal,r.fba,r.fbf,r.sjt,r.ggn,r.blr,r.sto,r.oth,r.cl]);});
   XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet(dD),'Daily Inventory');
   var sH=['SKU','Opening','Inward','Sales','FBA','FBF','SJIT','GGN','BLR','Store','Others','Total Out','Closing','DOI','Tag'];
-  var sD=[sH];g_sku.forEach(function(r){sD.push([r.sku,r.op,r.inw,r.sal,r.fba,r.fbf,r.sjt,r.ggn,r.blr,r.sto,r.oth,r.totOut,r.cl,r.doi,r.tag]);});
+  var sD=[sH];
+  g_sku.forEach(function(r){sD.push([r.sku,r.op,r.inw,r.sal,r.fba,r.fbf,r.sjt,r.ggn,r.blr,r.sto,r.oth,r.totOut,r.cl,r.doi,r.tag]);});
   XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet(sD),'SKU Summary');
-  var kD=[['Metric','Value'],['Period',g_kpis.period],['Opening',g_kpis.opening],['Inward',g_kpis.inward],['Sales',g_kpis.sales],['FBA',g_kpis.fba],['FBF',g_kpis.fbf],['SJIT',g_kpis.sjit],['GGN',g_kpis.ggn],['BLR',g_kpis.blr],['Store',g_kpis.store],['Others',g_kpis.others],['Closing',g_kpis.closing],['Capacity %',g_kpis.util],['Capacity Units',CAPACITY]];
+  var kD=[['Metric','Value'],['Period',g_kpis.period],['Opening',g_kpis.opening],['Inward',g_kpis.inward],
+    ['Sales',g_kpis.sales],['FBA',g_kpis.fba],['FBF',g_kpis.fbf],['SJIT',g_kpis.sjit],
+    ['GGN',g_kpis.ggn],['BLR',g_kpis.blr],['Store',g_kpis.store],['Others',g_kpis.others],
+    ['Closing',g_kpis.closing],['Capacity %',g_kpis.util],['Capacity Units',CAPACITY]];
   XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet(kD),'Dashboard KPIs');
-  XLSX.writeFile(wb2,'Kheda_Inventory_'+(g_kpis.period?g_kpis.period.replace('-','_'):'export')+'.xlsx');
+  XLSX.writeFile(wb2,'Kheda_'+g_kpis.period+'.xlsx');
 }
-
 function dlRaw(content,name,type){
   var a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([content],{type:type}));
   a.download=name;a.click();
 }
 
-// ═══════ PERSISTENCE — auto-save to localStorage ═══════
-var STORAGE_KEY = 'kheda_warehouse_state_v1';
-
+// ── PERSISTENCE
 function saveToStorage(){
-  if(!g_daily.length) return;
+  if(!g_months.length) return;
   try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      daily: g_daily, sku: g_sku, kpis: g_kpis,
-      errors: g_errors, fileName: g_lastFileName,
-      saved: new Date().toISOString()
+    localStorage.setItem(STORAGE_KEY,JSON.stringify({
+      months:g_months, activeIdx:g_activeIdx, saved:new Date().toISOString()
     }));
-  }catch(e){ console.warn('Save failed:',e.message); }
+    // Clear old storage keys
+    ['kheda_warehouse_state','kheda_warehouse_state_v1','kheda_warehouse_v3'].forEach(function(k){
+      try{localStorage.removeItem(k);}catch(e){}
+    });
+  }catch(e){console.warn('Save failed:',e.message);}
 }
-
 function loadFromStorage(){
   try{
-    var raw = localStorage.getItem(STORAGE_KEY);
+    ['kheda_warehouse_state','kheda_warehouse_state_v1','kheda_warehouse_v3'].forEach(function(k){
+      try{localStorage.removeItem(k);}catch(e){}
+    });
+    var raw=localStorage.getItem(STORAGE_KEY);
     if(!raw) return false;
-    var p = JSON.parse(raw);
-    if(!p.daily||!p.daily.length) return false;
-    p.daily.forEach(function(r){ r.date = new Date(r.date); });
-    g_daily=p.daily; g_sku=p.sku; g_kpis=p.kpis;
-    g_errors=p.errors||[]; g_lastFileName=p.fileName||'Previous session';
-    return p.saved ? new Date(p.saved).toLocaleString('en-IN') : 'previous session';
-  }catch(e){ console.warn('Load failed:',e.message); return false; }
+    var p=JSON.parse(raw);
+    if(!p.months||!p.months.length) return false;
+    p.months.forEach(function(m){
+      m.daily.forEach(function(r){r.date=new Date(r.date);});
+    });
+    g_months=p.months;
+    g_activeIdx=Math.min(p.activeIdx||0,g_months.length-1);
+    var active=g_months[g_activeIdx];
+    g_daily=active.daily;g_sku=active.sku;g_kpis=active.kpis;
+    g_errors=active.errors||[];g_lastFileName=active.fileName||'';
+    return p.saved?new Date(p.saved).toLocaleString('en-IN'):'previous session';
+  }catch(e){console.warn('Load failed:',e.message);return false;}
 }
-
 function clearStorage(){
-  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+  ['kheda_warehouse_state','kheda_warehouse_state_v1','kheda_warehouse_v3',STORAGE_KEY].forEach(function(k){
+    try{localStorage.removeItem(k);}catch(e){}
+  });
 }
 
-window.addEventListener('load', function(){
-  setTimeout(renderFlowDiagram, 200);
-  var savedAt = loadFromStorage();
-  if(savedAt){
-    renderDashboard(); renderDaily(); renderSKU(); renderAlerts(); setTimeout(renderFlowDiagram,100);
-    document.getElementById('uploadActions').style.display='flex';
-    document.getElementById('undoBtn').style.display='inline-flex';
-    var b = document.getElementById('dataBanner');
-    b.className='data-banner db-fresh';
-    b.textContent='Restored from last session ('+savedAt+'). Upload a new file to update.';
-  }
-});
-
-// ═══════════════════════════════════════════════
-// DYNAMIC FLOW DIAGRAM — drawn on canvas from live data
-// ═══════════════════════════════════════════════
+// ── FLOW DIAGRAM
 function renderFlowDiagram(){
-  var canvas = document.getElementById('flowCanvas');
+  var canvas=document.getElementById('flowCanvas');
   if(!canvas) return;
-  var DPR = Math.min(window.devicePixelRatio||1, 2);
-  var W   = canvas.parentElement ? canvas.parentElement.clientWidth : 1200;
-  if(W < 200) W = 1200;
-  var H   = Math.round(W * 0.52);
-  canvas.width  = W * DPR;
-  canvas.height = H * DPR;
-  canvas.style.width  = W + 'px';
-  canvas.style.height = H + 'px';
-
-  var ctx = canvas.getContext('2d');
-  ctx.scale(DPR, DPR);
+  var DPR=Math.min(window.devicePixelRatio||1,2);
+  var W=canvas.parentElement?canvas.parentElement.clientWidth:1200;
+  if(W<200) W=1200;
+  var H=Math.round(W*0.52);
+  canvas.width=W*DPR; canvas.height=H*DPR;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  var ctx=canvas.getContext('2d');
+  ctx.scale(DPR,DPR);
   ctx.clearRect(0,0,W,H);
-
-  var k      = g_kpis;
-  var noData = !k || k.closing === undefined;
-
-  // Design space 1600 x 832
-  var DS_W = 1600, DS_H = 832;
-  function sx(x){ return x/DS_W*W; }
-  function sy(y){ return y/DS_H*H; }
-  function sf(f){ return Math.max(9, f/DS_W*W); }
-
-  // ── BACKGROUND — clean light grey
-  ctx.fillStyle = '#F8FAFC';
-  ctx.fillRect(0,0,W,H);
-
-  // Subtle grid
-  ctx.strokeStyle = 'rgba(203,213,225,0.6)';
-  ctx.lineWidth = 0.5;
-  for(var gx=0; gx<DS_W; gx+=80){
-    ctx.beginPath(); ctx.moveTo(sx(gx),0); ctx.lineTo(sx(gx),H); ctx.stroke();
-  }
-  for(var gy=0; gy<DS_H; gy+=80){
-    ctx.beginPath(); ctx.moveTo(0,sy(gy)); ctx.lineTo(W,sy(gy)); ctx.stroke();
-  }
-
-  // ── Rounded rect helper
+  var k=g_kpis, noData=!k||k.closing===undefined;
+  var DS_W=1600,DS_H=832;
+  function sx(x){return x/DS_W*W;} function sy(y){return y/DS_H*H;}
+  function sf(f){return Math.max(9,f/DS_W*W);}
+  ctx.fillStyle='#F8FAFC'; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(203,213,225,0.5)'; ctx.lineWidth=0.5;
+  for(var gx=0;gx<DS_W;gx+=80){ctx.beginPath();ctx.moveTo(sx(gx),0);ctx.lineTo(sx(gx),H);ctx.stroke();}
+  for(var gy=0;gy<DS_H;gy+=80){ctx.beginPath();ctx.moveTo(0,sy(gy));ctx.lineTo(W,sy(gy));ctx.stroke();}
   function rr(x,y,w,h,r,fill,stroke,lw){
-    if(w<=0||h<=0) return;
-    r=Math.min(r,w/2,h/2);
-    ctx.beginPath();
-    ctx.moveTo(x+r,y);
-    ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
-    ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
-    ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
-    ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
-    ctx.closePath();
+    if(w<=0||h<=0) return; r=Math.min(r,w/2,h/2);
+    ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+    ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);
+    ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
     if(fill){ctx.fillStyle=fill;ctx.fill();}
     if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1.5;ctx.stroke();}
   }
-
-  // ── Shadow helper
-  function shadow(blur,color){
-    ctx.shadowBlur=blur; ctx.shadowColor=color; ctx.shadowOffsetX=0; ctx.shadowOffsetY=sy(3);
-  }
-  function noShadow(){ ctx.shadowBlur=0; ctx.shadowColor='transparent'; ctx.shadowOffsetY=0; }
-
-  // ── Arrow
-  function arrow(x1,y1,x2,y2,col){
-    var dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy);
-    if(len<6) return;
-    var ang=Math.atan2(dy,dx), hs=sx(11);
-    var ex=x2-hs*Math.cos(ang)*0.5, ey=y2-hs*Math.sin(ang)*0.5;
-    ctx.save();
-    ctx.strokeStyle=col; ctx.lineWidth=sx(2.5);
-    ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(ex,ey); ctx.stroke();
-    ctx.fillStyle=col;
-    ctx.beginPath();
-    ctx.moveTo(x2,y2);
+  function shadow(b,c){ctx.shadowBlur=b;ctx.shadowColor=c;ctx.shadowOffsetX=0;ctx.shadowOffsetY=sy(2);}
+  function noShad(){ctx.shadowBlur=0;ctx.shadowColor='transparent';ctx.shadowOffsetY=0;}
+  function arw(x1,y1,x2,y2,col){
+    var dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);if(len<6)return;
+    var ang=Math.atan2(dy,dx),hs=sx(11);
+    var ex=x2-hs*Math.cos(ang)*0.5,ey=y2-hs*Math.sin(ang)*0.5;
+    ctx.save();ctx.strokeStyle=col;ctx.lineWidth=sx(2.2);
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(ex,ey);ctx.stroke();
+    ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(x2,y2);
     ctx.lineTo(x2-hs*Math.cos(ang-0.4),y2-hs*Math.sin(ang-0.4));
     ctx.lineTo(x2-hs*Math.cos(ang+0.4),y2-hs*Math.sin(ang+0.4));
-    ctx.closePath(); ctx.fill();
-    ctx.restore();
+    ctx.closePath();ctx.fill();ctx.restore();
   }
-
-  // ── Professional node: white card with colored top border
-  function node(cx,cy,nw,nh,title,sub,val,accentCol,textCol){
-    var x=sx(cx)-sx(nw)/2, y=sy(cy)-sy(nh)/2, bw=sx(nw), bh=sy(nh), rad=sx(10);
-    shadow(sy(12),'rgba(0,0,0,0.10)');
-    rr(x,y,bw,bh,rad,'#FFFFFF','#E2E8F0',sx(1.5));
-    noShadow();
-    // Colored top accent
-    rr(x,y,bw,sy(5),sx(2),accentCol,null);
+  function node(cx,cy,nw,nh,title,sub,val,acc,valC){
+    var x=sx(cx)-sx(nw)/2,y=sy(cy)-sy(nh)/2,bw=sx(nw),bh=sy(nh),rad=sx(10);
+    shadow(sy(10),'rgba(0,0,0,0.08)');rr(x,y,bw,bh,rad,'#FFFFFF','#E2E8F0',sx(1.2));noShad();
+    rr(x,y,bw,sy(5),sx(2),acc,null);
     ctx.textAlign='center';
-    var midX=sx(cx);
-    // Title
-    ctx.fillStyle='#1E293B';
-    ctx.font='600 '+sf(12.5)+'px Inter,system-ui,sans-serif';
-    ctx.fillText(title, midX, y+bh*0.35);
-    // Sub
-    ctx.fillStyle='#94A3B8';
-    ctx.font='400 '+sf(10)+'px Inter,system-ui,sans-serif';
-    ctx.fillText(sub, midX, y+bh*0.56);
-    // Value
-    ctx.fillStyle=textCol||accentCol;
-    ctx.font='700 '+sf(16.5)+'px Inter,system-ui,sans-serif';
-    ctx.fillText(val, midX, y+bh*0.83);
+    ctx.fillStyle='#1E293B';ctx.font='600 '+sf(12)+'px Inter,system-ui,sans-serif';
+    ctx.fillText(title,sx(cx),y+bh*0.35);
+    ctx.fillStyle='#94A3B8';ctx.font='400 '+sf(9.5)+'px Inter,system-ui,sans-serif';
+    ctx.fillText(sub,sx(cx),y+bh*0.56);
+    ctx.fillStyle=valC||acc;ctx.font='700 '+sf(16)+'px Inter,system-ui,sans-serif';
+    ctx.fillText(val,sx(cx),y+bh*0.83);
   }
-
-  // ── Format helpers
-  function fmtN(n){ return (typeof n==='number')?n.toLocaleString('en-IN'):'0'; }
-  function fmtPeriod(p){
-    if(!p) return null;
-    var pts=p.split('-');
-    if(pts.length!==2) return p;
-    var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    var mi=parseInt(pts[1],10)-1;
-    return (months[mi]||pts[1])+' '+pts[0];
-  }
-
-  var op  = noData?'—':fmtN(k.opening);
-  var inw = noData?'—':fmtN(k.inward);
-  var sal = noData?'—':fmtN(k.sales);
-  var fba = noData?'—':fmtN(k.fba);
-  var fbf = noData?'—':fmtN(k.fbf);
-  var sjt = noData?'—':fmtN(k.sjit);
-  var ggn = noData?'—':fmtN(k.ggn+k.blr);
-  var sto = noData?'—':fmtN(k.store);
-  var oth = noData?'—':fmtN(k.others);
-  var cl  = noData?'—':fmtN(k.closing);
-  var per = noData?'No data uploaded yet':('Period: '+(fmtPeriod(k.period)||k.period));
-
-  // ── TITLE AREA
-  ctx.fillStyle='#0F172A';
-  ctx.font='700 '+sf(22)+'px Inter,system-ui,sans-serif';
-  ctx.textAlign='center';
-  ctx.fillText('Gujarat Kheda Warehouse — Inventory Flow', W/2, sy(46));
-  ctx.fillStyle='#64748B';
-  ctx.font='400 '+sf(12)+'px Inter,system-ui,sans-serif';
-  ctx.fillText(per+'   ·   Total Capacity: 2,35,000 units', W/2, sy(72));
-
-  // ── Divider line under title
-  ctx.strokeStyle='#E2E8F0'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(sx(80),sy(84)); ctx.lineTo(sx(1520),sy(84)); ctx.stroke();
-
-  // ── CENTRAL WAREHOUSE BOX  cx=800 cy=360 w=420 h=200
+  function fmtN(n){return typeof n==='number'?n.toLocaleString('en-IN'):'0';}
+  var per=noData?'No data uploaded':('Period: '+(formatPeriod(k.period)||k.period));
+  var op=noData?'—':fmtN(k.opening),inw=noData?'—':fmtN(k.inward),
+      sal=noData?'—':fmtN(k.sales),fba=noData?'—':fmtN(k.fba),
+      fbf=noData?'—':fmtN(k.fbf),sjt=noData?'—':fmtN(k.sjit),
+      ggn=noData?'—':fmtN(k.ggn+k.blr),sto=noData?'—':fmtN(k.store),
+      oth=noData?'—':fmtN(k.others),cl=noData?'—':fmtN(k.closing);
+  ctx.fillStyle='#0F172A';ctx.font='700 '+sf(21)+'px Inter,system-ui,sans-serif';
+  ctx.textAlign='center';ctx.fillText('Gujarat Kheda Warehouse — Inventory Flow',W/2,sy(46));
+  ctx.fillStyle='#64748B';ctx.font='400 '+sf(11.5)+'px Inter,system-ui,sans-serif';
+  ctx.fillText(per+'   \u00B7   Capacity: 2,35,000 units',W/2,sy(70));
+  ctx.strokeStyle='#E2E8F0';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(sx(80),sy(82));ctx.lineTo(sx(1520),sy(82));ctx.stroke();
   var CX=800,CY=370,BW=420,BH=210;
-  var cbx=sx(CX)-sx(BW)/2, cby=sy(CY)-sy(BH)/2;
-  var cbw=sx(BW), cbh=sy(BH);
-
-  // Drop shadow + box
-  shadow(sy(20),'rgba(37,99,235,0.15)');
-  rr(cbx,cby,cbw,cbh,sx(14),'#1B3A6B','#1B3A6B',0);
-  noShadow();
-  // Top stripe accent
+  var cbx=sx(CX)-sx(BW)/2,cby=sy(CY)-sy(BH)/2,cbw=sx(BW),cbh=sy(BH);
+  shadow(sy(18),'rgba(37,99,235,0.12)');rr(cbx,cby,cbw,cbh,sx(14),'#1B3A6B',null);noShad();
   rr(cbx,cby,cbw,sy(6),sx(4),'#3B82F6',null);
-  // Text
-  ctx.textAlign='center';
-  ctx.fillStyle='#FFFFFF';
-  ctx.font='700 '+sf(22)+'px Inter,system-ui,sans-serif';
-  ctx.fillText('GUJARAT KHEDA', W/2, cby+cbh*0.26);
-  ctx.fillStyle='#93C5FD';
-  ctx.font='600 '+sf(14)+'px Inter,system-ui,sans-serif';
-  ctx.fillText('WAREHOUSE', W/2, cby+cbh*0.44);
-  ctx.fillStyle='rgba(255,255,255,0.6)';
-  ctx.font='400 '+sf(11)+'px Inter,system-ui,sans-serif';
-  ctx.fillText(noData?'Upload data':fmtPeriod(k.period)||'', W/2, cby+cbh*0.59);
-  // Capacity bar
-  var bx=cbx+sx(30), by_=cby+cbh*0.71, barW=cbw-sx(60), barH=sy(18);
+  ctx.textAlign='center';ctx.fillStyle='#FFFFFF';
+  ctx.font='700 '+sf(21)+'px Inter,system-ui,sans-serif';ctx.fillText('GUJARAT KHEDA',W/2,cby+cbh*0.26);
+  ctx.fillStyle='#93C5FD';ctx.font='600 '+sf(13)+'px Inter,system-ui,sans-serif';ctx.fillText('WAREHOUSE',W/2,cby+cbh*0.44);
+  ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font='400 '+sf(10.5)+'px Inter,system-ui,sans-serif';
+  ctx.fillText(noData?'Upload data':formatPeriod(k.period),W/2,cby+cbh*0.59);
+  var bx=cbx+sx(30),by_=cby+cbh*0.71,barW=cbw-sx(60),barH=sy(16);
   rr(bx,by_,barW,barH,barH/2,'rgba(255,255,255,0.15)',null);
-  if(!noData){
-    var util=Math.min(k.closing/235000*100,100);
-    if(barW*util/100>barH){
-      rr(bx,by_,barW*util/100,barH,barH/2,'#34D399',null);
-    }
-  }
-  ctx.fillStyle='rgba(255,255,255,0.75)';
-  ctx.font='500 '+sf(9.5)+'px Inter,system-ui,sans-serif';
-  ctx.fillText(
-    noData?'Upload data to see capacity':
-      'Capacity: '+(k.closing/235000*100).toFixed(1)+'%  ('+fmtN(k.closing)+' / 2,35,000 units)',
-    W/2, by_+barH*0.75
-  );
-
-  // ── LEFT NODE: Previous month closing
-  node(140, 370, 230, 140, 'PREVIOUS MONTH','Closing Stock (IN)', op+' units','#059669','#059669');
-  arrow(sx(256), sy(370), cbx-sx(4), sy(370), '#059669');
-  ctx.fillStyle='#059669'; ctx.font='500 '+sf(11)+'px Inter,sans-serif';
-  ctx.textAlign='center';
-  ctx.fillText('Opening Balance →', sx(432), sy(354));
-
-  // ── RIGHT NODE: This month closing
-  node(1460, 370, 230, 140, 'THIS MONTH','Closing Stock', cl+' units','#2563EB','#2563EB');
-  arrow(cbx+cbw+sx(4), sy(370), sx(1344), sy(370), '#2563EB');
-  ctx.fillStyle='#2563EB'; ctx.font='500 '+sf(11)+'px Inter,sans-serif';
-  ctx.textAlign='center';
-  ctx.fillText('← End Balance', sx(1168), sy(354));
-
-  // ── TOP NODE: Inward
-  node(800, 130, 230, 108, 'INWARD','Stock Received', (noData?'—':'+'+inw)+' units','#0891B2','#0891B2');
-  arrow(sx(800), sy(185), sx(800), cby-sx(4), '#0891B2');
-  ctx.fillStyle='#0891B2'; ctx.font='500 '+sf(10)+'px Inter,sans-serif';
-  ctx.textAlign='left';
-  ctx.fillText('+ Inward', sx(818), sy(240));
-
-  // ── BOTTOM OUTFLOWS
-  var outflows = [
-    {cx:115,  title:'SALES',   sub:'Direct Orders',   val:sal,col:'#DC2626'},
-    {cx:343,  title:'FBA',     sub:'Amazon',           val:fba,col:'#7C3AED'},
-    {cx:571,  title:'FBF',     sub:'Flipkart',         val:fbf,col:'#2563EB'},
-    {cx:800,  title:'SJIT',    sub:'Just-In-Time',     val:sjt,col:'#D97706'},
-    {cx:1029, title:'GGN+BLR', sub:'WH Transfers',     val:ggn,col:'#0891B2'},
-    {cx:1257, title:'STORE',   sub:'Store Transfer',   val:sto,col:'#059669'},
-    {cx:1485, title:'OTHERS',  sub:'Uncategorised',    val:oth,col:'#DB2777'},
+  if(!noData){var u2=Math.min(k.closing/235000*100,100);if(barW*u2/100>barH)rr(bx,by_,barW*u2/100,barH,barH/2,'#34D399',null);}
+  ctx.fillStyle='rgba(255,255,255,0.65)';ctx.font='500 '+sf(9)+'px Inter,system-ui,sans-serif';
+  ctx.fillText(noData?'Upload data to see capacity':'Capacity: '+(+k.util).toFixed(1)+'%  ('+fmtN(k.closing)+' / 2,35,000 units)',W/2,by_+barH*0.75);
+  node(140,370,235,140,'PREVIOUS MONTH','Closing Stock (IN)',op+' units','#059669','#059669');
+  arw(sx(258),sy(370),cbx-sx(4),sy(370),'#059669');
+  ctx.fillStyle='#059669';ctx.font='500 '+sf(11)+'px Inter,sans-serif';ctx.textAlign='center';
+  ctx.fillText('Opening Balance \u2192',sx(435),sy(353));
+  node(1460,370,235,140,'THIS MONTH','Closing Stock',cl+' units','#2563EB','#2563EB');
+  arw(cbx+cbw+sx(4),sy(370),sx(1342),sy(370),'#2563EB');
+  ctx.fillStyle='#2563EB';ctx.font='500 '+sf(11)+'px Inter,sans-serif';ctx.textAlign='center';
+  ctx.fillText('\u2190 End Balance',sx(1165),sy(353));
+  node(800,128,230,106,'INWARD','Stock Received',(noData?'—':'+'+inw)+' units','#0891B2','#0891B2');
+  arw(sx(800),sy(182),sx(800),cby-sx(4),'#0891B2');
+  var outflows=[
+    {cx:115,title:'SALES',sub:'Direct Orders',val:sal,col:'#DC2626'},
+    {cx:343,title:'FBA',sub:'Amazon',val:fba,col:'#7C3AED'},
+    {cx:571,title:'FBF',sub:'Flipkart',val:fbf,col:'#2563EB'},
+    {cx:800,title:'SJIT',sub:'Just-In-Time',val:sjt,col:'#D97706'},
+    {cx:1029,title:'GGN+BLR',sub:'WH Transfers',val:ggn,col:'#0891B2'},
+    {cx:1257,title:'STORE',sub:'Store Transfer',val:sto,col:'#059669'},
+    {cx:1485,title:'OTHERS',sub:'Uncategorised',val:oth,col:'#DB2777'},
   ];
-
-  var wbottom = cby+cbh;
+  var wb=cby+cbh;
   outflows.forEach(function(o){
-    var ncx=sx(o.cx);
-    var arrowY1=wbottom+sx(3);
-    var nodeTopY=sy(598);
-    arrow(ncx, arrowY1, ncx, nodeTopY-sx(4), o.col);
-    node(o.cx, 710, 200, 148, o.title, o.sub,
-         (o.val==='—'?'—':o.val+' units'), o.col, o.col);
+    arw(sx(o.cx),wb+sx(3),sx(o.cx),sy(596),'#94A3B8');
+    node(o.cx,710,200,148,o.title,o.sub,(o.val==='—'?'—':o.val+' units'),o.col,o.col);
   });
-
-  // ── LEGEND
-  var lgItems=[
-    {l:'Inward',c:'#0891B2'},{l:'Sales',c:'#DC2626'},{l:'FBA',c:'#7C3AED'},
-    {l:'FBF',c:'#2563EB'},{l:'SJIT',c:'#D97706'},{l:'GGN+BLR',c:'#0891B2'},
-    {l:'Store',c:'#059669'},{l:'Others',c:'#DB2777'},{l:'Closing',c:'#2563EB'},
-  ];
   ctx.font='500 '+sf(10)+'px Inter,system-ui,sans-serif';
-  var lgX=sx(100), lgY=H-sy(14);
-  lgItems.forEach(function(g){
-    ctx.beginPath(); ctx.arc(lgX+sy(5),lgY,sy(5),0,Math.PI*2);
-    ctx.fillStyle=g.col; ctx.fill();
-    ctx.fillStyle='#64748B'; ctx.textAlign='left';
+  var lgX=sx(100),lgY=H-sy(12);
+  [{l:'Inward',c:'#0891B2'},{l:'Sales',c:'#DC2626'},{l:'FBA',c:'#7C3AED'},
+   {l:'FBF',c:'#2563EB'},{l:'SJIT',c:'#D97706'},{l:'GGN+BLR',c:'#0891B2'},
+   {l:'Store',c:'#059669'},{l:'Others',c:'#DB2777'},{l:'Closing',c:'#2563EB'}
+  ].forEach(function(g){
+    ctx.beginPath();ctx.arc(lgX+sy(5),lgY,sy(5),0,Math.PI*2);
+    ctx.fillStyle=g.c;ctx.fill();ctx.fillStyle='#64748B';ctx.textAlign='left';
     var tw=ctx.measureText(g.l).width;
-    ctx.fillText(g.l, lgX+sy(5)*2+sx(5), lgY+sy(4));
-    lgX += tw + sy(5)*2 + sx(18);
+    ctx.fillText(g.l,lgX+sy(5)*2+sx(4),lgY+sy(4));lgX+=tw+sy(5)*2+sx(18);
   });
 }
-
-// Re-render diagram whenever window resizes
-window.addEventListener('resize', function(){
-  if(document.getElementById('flow').classList.contains('on')){
-    renderFlowDiagram();
-  }
+window.addEventListener('resize',function(){
+  if(document.getElementById('flow')&&document.getElementById('flow').classList.contains('on')) renderFlowDiagram();
 });
 
+// ── ON PAGE LOAD
+window.addEventListener('load',function(){
+  setTimeout(renderFlowDiagram,200);
+  var savedAt=loadFromStorage();
+  if(savedAt&&g_months.length>0){
+    renderAll();
+    buildMonthTabs();
+    document.getElementById('uploadActions').style.display='flex';
+    document.getElementById('undoBtn').style.display='inline-flex';
+    var b=document.getElementById('dataBanner');
+    b.className='data-banner db-fresh';
+    var tot=g_months.reduce(function(a,m){return a+m.daily.length;},0);
+    b.textContent='\u2705 '+g_months.length+' month'+(g_months.length>1?'s':'')+' restored  \u00B7  '
+      +formatPeriod(g_kpis.period)+' active  \u00B7  '+tot+' total records';
+  }
+});
 </script>
 </body>
 </html>
